@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spelling Practice</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+
+  <!-- Home: pick a player -->
+  <section id="screen-home" class="screen">
+    <h1 class="logo">Spell<span>It</span>!</h1>
+    <p class="tagline">Who's practicing today?</p>
+    <div id="profileList" class="profile-grid"></div>
+    <button id="addPlayerBtn" class="btn btn-ghost">+ Add player</button>
+    <p id="noSpeech" class="banner warn" hidden>This browser can't speak words out loud. Try Safari, Chrome, or Edge.</p>
+    <button id="parentBtn" class="link-btn parent-link">🔒 Parent mode</button>
+  </section>
+
+  <!-- Setup: grade, difficulty, word list -->
+  <section id="screen-setup" class="screen" hidden>
+    <button class="back" data-go="home">← Players</button>
+    <div class="card">
+      <div id="setupHeader" class="player-header"></div>
+      <label class="field"><span>Grade</span><select id="gradeSelect"></select></label>
+      <div class="field">
+        <span>Difficulty</span>
+        <div id="diffSeg" class="seg">
+          <button data-diff="easy">Easy</button>
+          <button data-diff="medium">Medium</button>
+          <button data-diff="hard">Hard</button>
+        </div>
+        <small id="diffNote" class="note"></small>
+      </div>
+      <label class="field"><span>Words</span><select id="sourceSelect"></select></label>
+      <button id="startBtn" class="btn btn-primary btn-big">Start ▶</button>
+    </div>
+    <div class="card">
+      <h2>Recent quizzes</h2>
+      <ul id="recentList" class="recent"></ul>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section id="screen-quiz" class="screen" hidden>
+    <div class="quiz-top">
+      <button id="quitBtn" class="back">✕ Quit</button>
+      <div id="quizProgressText" class="quiz-progress-text"></div>
+      <div id="streakBadge" class="streak-badge"></div>
+    </div>
+    <div class="progress"><div id="progressBar"></div></div>
+    <div id="reviewBanner" class="banner" hidden>
+      Practice round: let's try the ones you missed.
+      <button id="skipReviewBtn" class="link-btn">Skip</button>
+    </div>
+    <div class="card quiz-card">
+      <div class="listen-row">
+        <button id="sayWordBtn" class="btn listen"><b>🔊</b><span>Word</span></button>
+        <button id="saySentenceBtn" class="btn listen"><b>💬</b><span>Sentence</span></button>
+        <button id="blankBtn" class="btn listen"><b>✏️</b><span>Fill the blank</span></button>
+      </div>
+      <p id="blankText" class="blank-text" hidden></p>
+      <div id="typeArea" class="type-area">
+        <div id="tiles" class="tiles" aria-hidden="true"></div>
+        <input id="answer" type="text" inputmode="text" enterkeyhint="go"
+               autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+               aria-label="Type the word">
+      </div>
+      <p id="feedback" class="feedback" aria-live="polite"></p>
+      <div class="action-row">
+        <button id="hintBtn" class="btn btn-ghost">💡 Hint</button>
+        <button id="giveUpBtn" class="btn btn-ghost">🙈 Show me</button>
+        <button id="nextBtn" class="btn btn-primary" hidden>Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="screen-results" class="screen" hidden>
+    <div class="card results-card">
+      <div id="resultStars" class="result-stars"></div>
+      <h2 id="resultTitle"></h2>
+      <ul id="resultStats" class="result-stats"></ul>
+      <div id="resultMissed"></div>
+      <div class="action-row">
+        <button id="againBtn" class="btn btn-primary btn-big">Play again</button>
+        <button class="btn btn-ghost" data-go="setup">Change words</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Parent mode -->
+  <section id="screen-parent" class="screen" hidden>
+    <button class="back" data-go="home">← Done</button>
+    <h1 class="parent-title">Parent mode</h1>
+    <div class="tabs" role="tablist">
+      <button data-tab="progress" class="active">Progress</button>
+      <button data-tab="lists">Word lists</button>
+      <button data-tab="players">Players</button>
+      <button data-tab="settings">Settings</button>
+    </div>
+
+    <div id="tab-progress" class="tab-panel"></div>
+
+    <div id="tab-lists" class="tab-panel" hidden>
+      <div class="card">
+        <h2 id="listEditorTitle">New word list</h2>
+        <p class="note">Great for this week's spelling list from school. One word per line. Add a sentence after a <b>|</b> to turn on the sentence buttons.</p>
+        <label class="field"><span>List name</span><input id="listName" type="text" placeholder="Week 9 spelling list"></label>
+        <label class="field"><span>Words</span>
+          <textarea id="listWords" rows="8" spellcheck="false" placeholder="friend | My friend sat next to me at lunch.&#10;because | I wore a coat because it was cold.&#10;laugh"></textarea>
+        </label>
+        <p id="listWarn" class="note warn-text"></p>
+        <div class="action-row">
+          <button id="saveListBtn" class="btn btn-primary">Save list</button>
+          <button id="cancelListBtn" class="btn btn-ghost" hidden>Cancel edit</button>
+        </div>
+      </div>
+      <div id="listsView"></div>
+    </div>
+
+    <div id="tab-players" class="tab-panel" hidden></div>
+
+    <div id="tab-settings" class="tab-panel" hidden>
+      <div class="card">
+        <h2>Voice</h2>
+        <label class="field"><span>Voice</span><select id="voiceSelect"></select></label>
+        <label class="field"><span>Speed <output id="rateOut"></output></span><input id="rateInput" type="range" min="0.5" max="1.2" step="0.05"></label>
+        <button id="testVoiceBtn" class="btn btn-ghost">🔊 Test voice</button>
+      </div>
+      <div class="card">
+        <h2>Parent PIN</h2>
+        <p class="note">Keeps kids out of Parent mode. It isn't real security.</p>
+        <label class="field"><span>New PIN</span><input id="pinInput" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label>
+        <div class="action-row">
+          <button id="savePinBtn" class="btn btn-primary">Save PIN</button>
+          <button id="clearPinBtn" class="btn btn-ghost">Remove PIN</button>
+        </div>
+        <p id="pinMsg" class="note"></p>
+      </div>
+      <div class="card">
+        <h2>Backup</h2>
+        <p class="note">Progress is saved in this browser only, so the iPad and the laptop each keep their own. Use a backup to move it between them.</p>
+        <div class="action-row">
+          <button id="exportBtn" class="btn btn-ghost">⬇ Download backup</button>
+          <label class="btn btn-ghost file-btn">⬆ Restore backup<input id="importInput" type="file" accept="application/json,.json" hidden></label>
+        </div>
+        <p id="backupMsg" class="note"></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Add player -->
+<dialog id="playerDialog">
+  <form method="dialog" id="playerForm">
+    <h2>New player</h2>
+    <label class="field"><span>Name</span><input id="playerName" type="text" maxlength="20" required autocomplete="off"></label>
+    <div class="field"><span>Pick a buddy</span><div id="avatarPicker" class="avatar-picker"></div></div>
+    <label class="field"><span>Grade</span><select id="playerGrade"></select></label>
+    <div class="action-row">
+      <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+      <button value="ok" class="btn btn-primary">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- PIN gate -->
+<dialog id="pinDialog">
+  <form method="dialog" id="pinForm">
+    <h2>Parent PIN</h2>
+    <input id="pinGate" type="password" inputmode="numeric" maxlength="8" autocomplete="off" aria-label="PIN">
+    <p id="pinGateMsg" class="note warn-text"></p>
+    <div class="action-row">
+      <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+      <button value="ok" class="btn btn-primary">Open</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="confetti" aria-hidden="true"></div>
+
+<script src="words.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
