@@ -254,25 +254,8 @@ input[type="range"] { width: 100%; }
 .type-area:not(:focus-within) .tile.cursor { animation: none; border-color: var(--line); }
 .tiles .placeholder { color: var(--muted); font-size: 1.1rem; }
 
-/* handwriting: one canvas per letter, ruled like handwriting paper */
-.write-boxes {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin: 22px 0 6px;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-.write-box { --box: clamp(62px, 17vw, 96px); position: relative; width: var(--box); }
-.write-box canvas {
-  display: block;
-  width: var(--box);
-  height: calc(var(--box) * 1.25);
-  border: 3px solid var(--line);
-  border-radius: 12px;
-  touch-action: none; /* drawing must not scroll the page */
+/* handwriting: a big pad for the current letter, a strip of small boxes for the word */
+.ruled {
   background:
     linear-gradient(to bottom,
       transparent calc(18% - 1px), #e4dff7 calc(18% - 1px) calc(18% + 1px),
@@ -281,25 +264,39 @@ input[type="range"] { width: 100%; }
       transparent calc(78% + 1.5px)),
     #fff;
 }
-.write-box .ghost {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: calc(var(--box) * 1.25);
-  display: grid;
-  place-items: center;
-  font-size: calc(var(--box) * 0.75);
-  font-weight: 800;
-  color: rgba(108, 76, 245, 0.2);
-  pointer-events: none;
+.write-area { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.write-boxes { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 18px 0 10px; }
+.write-box {
+  --box: clamp(38px, 10vw, 56px);
+  position: relative;
+  width: var(--box);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
 }
+.write-area.checked .write-box { --box: clamp(52px, 16vw, 84px); cursor: default; }
+.write-box canvas, .pad-wrap canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 3px solid var(--line);
+  border-radius: 10px;
+  touch-action: none; /* drawing must not scroll the page */
+}
+.write-box.active canvas { border-color: var(--primary); box-shadow: 0 0 0 3px #d9d0ff; }
 .write-box .answer { display: block; text-align: center; font-size: calc(var(--box) * 0.42); font-weight: 900; color: var(--primary); }
 .write-area:not(.checked) .answer { display: none; }
 .write-area.checked canvas { border-color: var(--accent); }
 .write-box.missing canvas { border-style: dashed; background: var(--empty); }
 .write-box.extra .answer { color: var(--bad); }
+
+.pad-wrap { width: min(100%, 420px, 50vh); margin: 0 auto; }
+.pad-wrap canvas { border-color: var(--primary); border-radius: 18px; }
+.write-area.checked .pad-wrap { display: none; }
 .write-tools { justify-content: center; }
+.write-tools .btn { flex: 1 1 0; padding: 12px 8px; }
 
 .feedback { text-align: center; font-size: 1.3rem; font-weight: 900; min-height: 1.6em; margin: 10px 0 0; }
 .feedback.good { color: var(--ok); }
@@ -391,10 +388,14 @@ dialog::backdrop { background: rgba(35, 32, 74, 0.45); }
 }
 
 @media (max-width: 560px) {
-  .listen-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .listen-row { gap: 6px; }
+  .listen { padding: 8px 2px; gap: 2px; }
+  .listen b { font-size: 1.4rem; }
+  .listen span { font-size: 0.72rem; line-height: 1.1; }
 }
 
 @media (max-width: 480px) {
   .card { padding: 16px; }
-  .listen span { font-size: 0.8rem; }
+  .quiz-card .action-row { gap: 8px; }
+  .quiz-card .action-row .btn { padding: 11px 10px; font-size: 0.95rem; }
 }

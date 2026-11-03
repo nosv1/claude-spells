@@ -375,6 +375,7 @@ function loadWord() {
 
   $('#typeArea').hidden = writing();
   $('#writeArea').hidden = !writing();
+  $('#checkBtn').hidden = !writing();
   if (writing()) {
     input.blur(); // keep the phone keyboard away
     setupWriteArea();
@@ -512,6 +513,7 @@ function finishWord(correct) {
   $('#markRightBtn').hidden = true;
   $('#markWrongBtn').hidden = true;
   $('.write-tools').hidden = true;
+  $('#checkBtn').hidden = true;
   $('#nextBtn').hidden = false;
 }
 
@@ -550,167 +552,191 @@ function hint() {
 }
 
 // ---------- handwriting ----------
-// One canvas per letter. Nothing reads the handwriting yet: after Check the
-// right letter shows under each box and the speller marks it right or wrong.
+// One box per letter. The current letter is written on a big pad, and the strip of
+// small boxes above it shows the word so far (tap one to redo it). Nothing reads the
+// handwriting yet: after Check the right letter shows under each box and the
+// speller marks it right or wrong.
+
+const pad = $('#pad');
 
 function setupWriteArea() {
   const w = quiz.word;
   w.boxes = [];
-  w.undo = [];
+  w.active = 0;
   w.checked = false;
   $('#writeBoxes').innerHTML = '';
   $('#writeArea').classList.remove('checked');
   $('.write-tools').hidden = false;
   const start = quiz.showSlots ? w.target.length : 1;
   for (let i = 0; i < start; i++) addBox();
+  sizeCanvas(pad);
+  selectBox(0);
 }
 
 function addBox() {
-  const wrap = document.createElement('div');
+  const w = quiz.word;
+  const wrap = document.createElement('button');
+  wrap.type = 'button';
   wrap.className = 'write-box';
-  wrap.innerHTML = '<span class="ghost"></span><canvas></canvas><span class="answer"></span>';
+  wrap.innerHTML = '<canvas class="ruled"></canvas><span class="answer"></span>';
   $('#writeBoxes').append(wrap);
-  const box = { wrap, canvas: wrap.querySelector('canvas'), strokes: [] };
-  quiz.word.boxes.push(box);
-  sizeCanvas(box);
-  attachDrawing(box);
+  const box = { wrap, canvas: wrap.querySelector('canvas'), strokes: [], ghost: '' };
+  w.boxes.push(box);
+  wrap.addEventListener('click', () => {
+    if (!w.checked && !w.done) selectBox(w.boxes.indexOf(box));
+  });
+  sizeCanvas(box.canvas);
   return box;
 }
 
-function sizeCanvas(box) {
-  const r = box.canvas.getBoundingClientRect();
+function sizeCanvas(canvas) {
+  const r = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  box.canvas.width = Math.max(1, Math.round(r.width * dpr));
-  box.canvas.height = Math.max(1, Math.round(r.height * dpr));
-  redraw(box);
+  canvas.width = Math.max(1, Math.round(r.width * dpr));
+  canvas.height = Math.max(1, Math.round(r.height * dpr));
 }
 
-// Points are stored as 0–1 fractions of the box, so a resize just redraws.
-function redraw(box) {
-  const c = box.canvas;
-  const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, c.width, c.height);
+// Points are stored as 0–1 fractions, so the same strokes draw on the pad and in the strip.
+// A hint's guide letter is drawn underneath, sitting on the ruled baseline (78%).
+function drawStrokes(canvas, strokes, ghost) {
+  const ctx = canvas.getContext('2d');
+  const { width: cw, height: ch } = canvas;
+  ctx.clearRect(0, 0, cw, ch);
+  if (ghost) {
+    ctx.font = `800 ${ch * 0.7}px Nunito, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = 'rgba(108, 76, 245, 0.2)';
+    ctx.fillText(ghost, cw / 2, ch * 0.78);
+  }
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = '#23204a';
-  ctx.lineWidth = c.width * 0.065;
-  for (const s of box.strokes) {
+  ctx.lineWidth = cw * 0.05;
+  for (const s of strokes) {
     ctx.beginPath();
-    s.forEach(([x, y], i) => (i ? ctx.lineTo(x * c.width, y * c.height) : ctx.moveTo(x * c.width, y * c.height)));
-    if (s.length === 1) ctx.lineTo(s[0][0] * c.width + 0.5, s[0][1] * c.height); // a dot, like on an i
+    s.forEach(([x, y], i) => (i ? ctx.lineTo(x * cw, y * ch) : ctx.moveTo(x * cw, y * ch)));
+    if (s.length === 1) ctx.lineTo(s[0][0] * cw + 0.5, s[0][1] * ch); // a dot, like on an i
     ctx.stroke();
   }
 }
 
-function attachDrawing(box) {
-  const c = box.canvas;
+const activeBox = () => quiz.word.boxes[quiz.word.active];
+
+function renderBox(box) {
+  drawStrokes(box.canvas, box.strokes, box.ghost);
+  if (box === activeBox() && !quiz.word.checked) drawStrokes(pad, box.strokes, box.ghost);
+}
+
+function selectBox(i) {
+  const w = quiz.word;
+  w.active = i;
+  w.boxes.forEach((b, idx) => b.wrap.classList.toggle('active', idx === i));
+  renderBox(activeBox());
+  updateNextLetter();
+}
+
+function updateNextLetter() {
+  const w = quiz.word;
+  const onLast = w.active === w.boxes.length - 1;
+  $('#nextLetterBtn').disabled = onLast && (quiz.showSlots || !activeBox().strokes.length);
+}
+
+function nextLetter() {
+  const w = quiz.word;
+  if (w.checked || w.done) return;
+  if (w.active === w.boxes.length - 1) {
+    if (quiz.showSlots || !activeBox().strokes.length || w.boxes.length >= w.target.length + 6) return;
+    addBox();
+  }
+  selectBox(w.active + 1);
+}
+
+(function attachPad() {
   let stroke = null;
   const pt = (e) => {
-    const r = c.getBoundingClientRect();
+    const r = pad.getBoundingClientRect();
     return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
   };
-  c.addEventListener('pointerdown', (e) => {
+  pad.addEventListener('pointerdown', (e) => {
     const w = quiz?.word;
-    if (!w || w.done || w.checked) return;
+    if (!w?.boxes || w.done || w.checked) return;
     e.preventDefault();
-    try { c.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events */ }
+    try { pad.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events */ }
     stroke = [pt(e)];
-    box.strokes.push(stroke);
-    w.undo.push(box);
-    redraw(box);
+    activeBox().strokes.push(stroke);
+    renderBox(activeBox());
   });
-  c.addEventListener('pointermove', (e) => {
+  pad.addEventListener('pointermove', (e) => {
     if (!stroke) return;
-    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
     (events.length ? events : [e]).forEach((ev) => stroke.push(pt(ev)));
-    redraw(box);
+    renderBox(activeBox());
   });
   const end = () => {
     if (!stroke) return;
     stroke = null;
-    growBoxes();
+    updateNextLetter();
   };
-  c.addEventListener('pointerup', end);
-  c.addEventListener('pointercancel', end);
-}
-
-// Medium/hard don't reveal the length: keep one empty box after the last written one.
-function growBoxes() {
-  const w = quiz.word;
-  if (quiz.showSlots) return;
-  const last = w.boxes[w.boxes.length - 1];
-  if (last.strokes.length && w.boxes.length < w.target.length + 6) addBox();
-}
-
-function trimBoxes() {
-  const w = quiz.word;
-  if (quiz.showSlots) return;
-  while (w.boxes.length > 1 && !w.boxes[w.boxes.length - 1].strokes.length && !w.boxes[w.boxes.length - 2].strokes.length
-         && !w.boxes[w.boxes.length - 1].wrap.querySelector('.ghost').textContent) {
-    w.boxes.pop().wrap.remove();
-  }
-}
+  pad.addEventListener('pointerup', end);
+  pad.addEventListener('pointercancel', end);
+})();
 
 function undoStroke() {
-  const w = quiz.word;
-  const box = w.undo.pop();
-  if (!box || w.checked) return;
-  box.strokes.pop();
-  redraw(box);
-  trimBoxes();
+  if (quiz.word.checked) return;
+  activeBox().strokes.pop();
+  renderBox(activeBox());
+  updateNextLetter();
 }
 
-function clearWriting() {
-  const w = quiz.word;
-  if (w.checked) return;
-  const ghosts = w.boxes.map((b) => b.wrap.querySelector('.ghost').textContent);
-  setupWriteArea();
-  ghosts.forEach((g, i) => {
-    if (!g) return;
-    while (w.boxes.length <= i) addBox();
-    w.boxes[i].wrap.querySelector('.ghost').textContent = g;
-  });
+function clearLetter() {
+  if (quiz.word.checked) return;
+  activeBox().strokes = [];
+  renderBox(activeBox());
+  updateNextLetter();
 }
 
-// Hint: trace a faint copy of the next letter that hasn't been written.
+// Hint: trace a faint copy of the letter that belongs in the current box.
 function hintWriting() {
   const w = quiz.word;
-  let i = w.boxes.findIndex((b, idx) => idx < w.target.length && !b.strokes.length && !b.wrap.querySelector('.ghost').textContent);
-  if (i === -1) i = w.boxes.length;
-  if (i >= w.target.length) {
-    setFeedback('You have written enough letters. Try Check!', '');
+  const box = activeBox();
+  if (w.active >= w.target.length) {
+    setFeedback('The word is shorter than that. Try Check!', '');
     return;
   }
-  while (w.boxes.length <= i) addBox();
-  w.boxes[i].wrap.querySelector('.ghost').textContent = w.target[i];
+  if (box.ghost) return;
+  box.ghost = w.target[w.active];
   w.hinted = true;
   quiz.hintsLeft--;
   renderHint();
-  growBoxes();
+  renderBox(box);
 }
 
-// Show the right letter under each box, adding dashed boxes for letters that were left out.
+// Show the right letter under each box, with dashed boxes for letters that were left out.
 function revealWriting() {
   const w = quiz.word;
   w.checked = true;
+  $('#writeArea').classList.add('checked');
   while (w.boxes.length > w.target.length && !w.boxes[w.boxes.length - 1].strokes.length) {
     w.boxes.pop().wrap.remove();
   }
   while (w.boxes.length < w.target.length) addBox();
   w.boxes.forEach((b, i) => {
-    b.wrap.querySelector('.ghost').textContent = '';
+    b.ghost = '';
+    b.wrap.classList.remove('active');
     b.wrap.querySelector('.answer').textContent = w.target[i] || '✕';
     b.wrap.classList.toggle('extra', i >= w.target.length);
     b.wrap.classList.toggle('missing', !b.strokes.length);
+    sizeCanvas(b.canvas); // the strip gets bigger once checked
+    renderBox(b);
   });
-  $('#writeArea').classList.add('checked');
 }
 
 function checkWriting() {
   const w = quiz.word;
   if (w.done || w.checked) return;
   if (!w.boxes.some((b) => b.strokes.length)) {
-    setFeedback('Write the word in the boxes first.', 'miss');
+    setFeedback('Write the word first, one letter per box.', 'miss');
     return;
   }
   revealWriting();
@@ -718,6 +744,7 @@ function checkWriting() {
   $('.write-tools').hidden = true;
   $('#hintBtn').hidden = true;
   $('#giveUpBtn').hidden = true;
+  $('#checkBtn').hidden = true;
   $('#markRightBtn').hidden = false;
   $('#markWrongBtn').hidden = false;
   const it = currentItem();
@@ -725,12 +752,15 @@ function checkWriting() {
 }
 
 $('#undoBtn').addEventListener('click', undoStroke);
-$('#clearBtn').addEventListener('click', clearWriting);
+$('#clearBtn').addEventListener('click', clearLetter);
+$('#nextLetterBtn').addEventListener('click', nextLetter);
 $('#checkBtn').addEventListener('click', checkWriting);
 $('#markRightBtn').addEventListener('click', () => finishWord(true));
 $('#markWrongBtn').addEventListener('click', () => finishWord(false));
 window.addEventListener('resize', () => {
-  if (writing() && quiz.word?.boxes) quiz.word.boxes.forEach(sizeCanvas);
+  if (!writing() || !quiz.word?.boxes) return;
+  sizeCanvas(pad);
+  quiz.word.boxes.forEach((b) => { sizeCanvas(b.canvas); renderBox(b); });
 });
 
 function blankOut(sentence, word, filler) {

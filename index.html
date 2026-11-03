@@ -86,16 +86,20 @@
       </div>
       <div id="writeArea" class="write-area" hidden>
         <div id="writeBoxes" class="write-boxes"></div>
+        <div class="pad-wrap">
+          <canvas id="pad" class="ruled" aria-label="Write the letter here"></canvas>
+        </div>
         <div class="action-row write-tools">
           <button id="undoBtn" class="btn btn-ghost">↶ Undo</button>
           <button id="clearBtn" class="btn btn-ghost">🧽 Clear</button>
-          <button id="checkBtn" class="btn btn-primary">Check ✓</button>
+          <button id="nextLetterBtn" class="btn btn-ghost">Next →</button>
         </div>
       </div>
       <p id="feedback" class="feedback" aria-live="polite"></p>
       <div class="action-row">
         <button id="hintBtn" class="btn btn-ghost">💡 Hint</button>
         <button id="giveUpBtn" class="btn btn-ghost">🙈 Show me</button>
+        <button id="checkBtn" class="btn btn-primary" hidden>Check ✓</button>
         <button id="markRightBtn" class="btn btn-primary" hidden>✓ I got it</button>
         <button id="markWrongBtn" class="btn btn-ghost" hidden>✗ Not quite</button>
         <button id="nextBtn" class="btn btn-primary" hidden>Next →</button>
