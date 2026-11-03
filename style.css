@@ -191,7 +191,8 @@ input[type="range"] { width: 100%; }
 .progress { height: 10px; background: #fff; border-radius: 999px; overflow: hidden; margin: 10px 0 16px; }
 #progressBar { height: 100%; width: 0; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.3s; }
 
-.listen-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.listen-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.blank-text.meaning-text { background: #e9f6ff; font-size: 1.15rem; }
 .listen {
   display: flex;
   flex-direction: column;
@@ -339,6 +340,10 @@ dialog::backdrop { background: rgba(35, 32, 74, 0.45); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 560px) {
+  .listen-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 480px) {

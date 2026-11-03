@@ -57,6 +57,8 @@
     $('#blankBtn').click();
     check('blank hides word', !$('#blankText').textContent.toLowerCase().includes(quiz.word.target) && $('#blankText').textContent.includes('_____'));
 
+    check('every built-in word has a meaning', Object.values(WORDS).every((g) => Object.values(g).every((l) => l.every(([w]) => DEFS[w.toLowerCase()]))));
+
     // Rest correct.
     while (!quiz.reviewing && quiz.i < quiz.items.length) {
       if (!quiz.word.done) type(quiz.word.target);
@@ -76,14 +78,19 @@
     activeTab = 'lists';
     renderParent();
     $('#listName').value = 'Week 9';
-    $('#listWords').value = 'friend | My friend sat with me.\nlaugh\nbad | no match here';
+    $('#listWords').value = 'friend | My friend sat with me. | Someone you like.\nlaugh\nbad | no match here\nzorp | | A zorp is a made-up word.';
     $('#saveListBtn').click();
-    check('list saved', db.lists.length === 1 && db.lists[0].words.length === 3);
-    check('list warning shown', $('#listWarn').textContent.includes('bad'));
+    check('list saved', db.lists.length === 1 && db.lists[0].words.length === 4);
+    check('list keeps meaning', db.lists[0].words[0].d === 'Someone you like.' && db.lists[0].words[3].s === '');
+    check('list warning shown', $('#listWarn').textContent.includes('"bad"'));
+    check('meaning-uses-word warning', $('#listWarn').textContent.includes('zorp'));
+    $('#listsView [data-edit]').click();
+    check('editor round-trips meaning', $('#listWords').value.split('\n')[3] === 'zorp |  | A zorp is a made-up word.');
+    resetListEditor();
     db.profiles[0].source = `list:${db.lists[0].id}`;
     startQuiz();
-    check('list quiz uses list words', quiz.items.length === 3);
-    const noSentence = quiz.items.find((x) => !x.s);
+    check('list quiz uses list words', quiz.items.length === 4);
+    const noSentence = quiz.items.find((x) => x.w === 'laugh');
     while (currentItem() !== noSentence) { type(quiz.word.target); next(); }
     check('sentence buttons off without sentence', $('#saySentenceBtn').disabled);
 
@@ -93,6 +100,25 @@
   } catch (e) {
     out.push(`FAIL exception: ${e.message}\n${e.stack}`);
   }
-  localStorage.removeItem(STORE_KEY);
-  document.getElementById('out').textContent = out.join('\n');
+
+  // Meaning lookups are async: custom, built-in, then online (fetch stubbed).
+  (async () => {
+    try {
+      window.fetch = async () => ({ ok: true, json: async () => [{ meanings: [{ definitions: [{ definition: 'A bad zorp thing.' }] }] }] });
+      check('custom meaning wins', (await meaningFor({ w: 'friend', d: 'Someone you like.' })) === 'Someone you like.');
+      check('built-in meaning', (await meaningFor({ w: 'Wednesday' })) === DEFS.wednesday);
+      check('online fallback', (await meaningFor({ w: 'blorptastic' })) === 'A bad zorp thing.');
+
+      startQuiz();
+      quiz.items[quiz.i] = { w: 'zorp', s: '', d: 'A zorp is a made-up word.' };
+      loadWord();
+      $('#meaningBtn').click();
+      await new Promise((r) => setTimeout(r, 50));
+      check('meaning shown with word blanked', $('#meaningText').textContent === '📖 A _____ is a made-up word.');
+    } catch (e) {
+      out.push(`FAIL exception: ${e.message}\n${e.stack}`);
+    }
+    localStorage.removeItem(STORE_KEY);
+    document.getElementById('out').textContent = out.join('\n');
+  })();
 })();

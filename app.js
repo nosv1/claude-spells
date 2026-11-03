@@ -160,7 +160,7 @@ function missedWords(p) {
   return Object.values(p.words)
     .filter((x) => x.last === false)
     .sort((a, b) => b.wrong - a.wrong)
-    .map(({ w, s }) => ({ w, s }));
+    .map(({ w, s, d }) => ({ w, s, d }));
 }
 
 function poolFor(p) {
@@ -198,6 +198,7 @@ function recordWord(p, it, correct) {
   const key = it.w.toLowerCase();
   const st = p.words[key] || (p.words[key] = { w: it.w, s: it.s || '', right: 0, wrong: 0 });
   st.s = it.s || st.s;
+  if (it.d) st.d = it.d;
   if (correct) st.right++; else st.wrong++;
   st.last = correct;
 }
@@ -350,6 +351,7 @@ function loadWord() {
   input.value = '';
   input.readOnly = false;
   $('#blankText').hidden = true;
+  $('#meaningText').hidden = true;
   $('#feedback').textContent = '';
   $('#feedback').className = 'feedback';
   $('#nextBtn').hidden = true;
@@ -517,6 +519,43 @@ function blankOut(sentence, word, filler) {
   return sentence.replace(re, filler);
 }
 
+// Meaning: the list's own, then the built-in one, then a free online dictionary.
+const lookedUp = new Map();
+
+async function meaningFor(it) {
+  const key = it.w.toLowerCase();
+  if (it.d) return it.d;
+  if (DEFS[key]) return DEFS[key];
+  if (lookedUp.has(key)) return lookedUp.get(key);
+  let def = '';
+  try {
+    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`);
+    if (res.ok) {
+      const data = await res.json();
+      def = data[0]?.meanings?.[0]?.definitions?.[0]?.definition || '';
+    }
+  } catch (e) { /* offline */ }
+  if (def) lookedUp.set(key, def);
+  return def;
+}
+
+$('#meaningBtn').addEventListener('click', async () => {
+  const it = currentItem();
+  const box = $('#meaningText');
+  input.focus();
+  box.textContent = 'Looking it up…';
+  box.hidden = false;
+  const def = await meaningFor(it);
+  if (currentItem() !== it) return; // moved on while it was loading
+  if (!def) {
+    box.textContent = 'No meaning found for this word.';
+    return;
+  }
+  const shown = blankOut(def, it.w, '_____');
+  box.textContent = `📖 ${shown}`;
+  say(`It means: ${blankOut(def, it.w, 'blank')}`);
+});
+
 $('#sayWordBtn').addEventListener('click', () => { say(currentItem().w); input.focus(); });
 $('#saySentenceBtn').addEventListener('click', () => { say(currentItem().s); input.focus(); });
 $('#blankBtn').addEventListener('click', () => {
@@ -678,14 +717,13 @@ function parseListText(text) {
   const words = [];
   const warnings = [];
   text.split('\n').forEach((line) => {
-    const [rawW, ...rest] = line.split('|');
-    const w = (rawW || '').trim();
+    const [w, s, d] = line.split('|').map((x) => x.trim()).concat('', '');
     if (!w) return;
-    const s = rest.join('|').trim();
     if (/[^a-zA-Z'-]/.test(w)) warnings.push(`"${w}" has spaces or symbols, which makes it hard to type.`);
     if (s && blankOut(s, w, '') === s) warnings.push(`The sentence for "${w}" doesn't contain the word, so nothing will be blanked out.`);
     else if (s && blankOut(s, w, '').toLowerCase().includes(w.toLowerCase())) warnings.push(`The sentence for "${w}" still shows the word inside another word (like "snow" in "snowman").`);
-    words.push({ w, s });
+    if (d && d.toLowerCase().includes(w.toLowerCase())) warnings.push(`The meaning for "${w}" uses the word itself, so it will show as a blank.`);
+    words.push(d ? { w, s, d } : { w, s });
   });
   return { words, warnings };
 }
@@ -737,7 +775,7 @@ $('#listsView').addEventListener('click', (e) => {
     const l = db.lists.find((x) => x.id === edit.dataset.edit);
     editingListId = l.id;
     $('#listName').value = l.name;
-    $('#listWords').value = l.words.map((x) => (x.s ? `${x.w} | ${x.s}` : x.w)).join('\n');
+    $('#listWords').value = l.words.map((x) => [x.w, x.s, x.d].filter((v, i, a) => v || a.slice(i + 1).some(Boolean)).join(' | ')).join('\n');
     $('#listEditorTitle').textContent = `Editing "${l.name}"`;
     $('#cancelListBtn').hidden = false;
     $('#listWarn').textContent = '';

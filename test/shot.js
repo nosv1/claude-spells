@@ -16,6 +16,7 @@
     quiz.items[0] = { w: 'because', s: 'I wore a coat because it was cold.' };
     loadWord();
     $('#blankBtn').click();
+    $('#meaningBtn').click();
     input.value = 'becu';
     input.dispatchEvent(new Event('input'));
     if (screen === 'results') {

@@ -63,8 +63,10 @@
         <button id="sayWordBtn" class="btn listen"><b>🔊</b><span>Word</span></button>
         <button id="saySentenceBtn" class="btn listen"><b>💬</b><span>Sentence</span></button>
         <button id="blankBtn" class="btn listen"><b>✏️</b><span>Fill the blank</span></button>
+        <button id="meaningBtn" class="btn listen"><b>📖</b><span>Meaning</span></button>
       </div>
       <p id="blankText" class="blank-text" hidden></p>
+      <p id="meaningText" class="blank-text meaning-text" hidden></p>
       <div id="typeArea" class="type-area">
         <div id="tiles" class="tiles" aria-hidden="true"></div>
         <input id="answer" type="text" inputmode="text" enterkeyhint="go"
@@ -110,10 +112,10 @@
     <div id="tab-lists" class="tab-panel" hidden>
       <div class="card">
         <h2 id="listEditorTitle">New word list</h2>
-        <p class="note">Great for this week's spelling list from school. One word per line. Add a sentence after a <b>|</b> to turn on the sentence buttons.</p>
+        <p class="note">Great for this week's spelling list from school. One word per line: <b>word | sentence | meaning</b>. The sentence and meaning are optional. Words without a meaning are looked up online when the 📖 button is pressed.</p>
         <label class="field"><span>List name</span><input id="listName" type="text" placeholder="Week 9 spelling list"></label>
         <label class="field"><span>Words</span>
-          <textarea id="listWords" rows="8" spellcheck="false" placeholder="friend | My friend sat next to me at lunch.&#10;because | I wore a coat because it was cold.&#10;laugh"></textarea>
+          <textarea id="listWords" rows="8" spellcheck="false" placeholder="friend | My friend sat next to me at lunch. | Someone you like and have fun with.&#10;because | I wore a coat because it was cold.&#10;laugh"></textarea>
         </label>
         <p id="listWarn" class="note warn-text"></p>
         <div class="action-row">
@@ -187,6 +189,7 @@
 <div id="confetti" aria-hidden="true"></div>
 
 <script src="words.js"></script>
+<script src="defs.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

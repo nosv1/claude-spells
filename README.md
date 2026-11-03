@@ -4,8 +4,9 @@ A spelling practice app for kids (and grown-ups). It says a word out loud and yo
 green or red as you type it.
 
 - **Grades 1–8 plus Adult**, each with Easy / Medium / Hard word lists ([words.js](words.js)).
-- **Three ways to hear it:** the word, the word in a sentence, and the sentence with the word
-  blanked out.
+- **Four clues:** the word, the word in a sentence, the sentence with the word blanked out, and
+  what the word means. Built-in meanings are in [defs.js](defs.js). Words without one are looked up at
+  [dictionaryapi.dev](https://dictionaryapi.dev/).
 - **Quizzes are 10 words** with one hint each. Missed words come back in a practice round at the end.
 - **Players** each get their own stars, day streak, and missed-words list.
 - **Parent mode** (optional PIN) shows everyone's progress and lets you add your own word lists,
