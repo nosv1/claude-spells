@@ -132,16 +132,16 @@
       quiz.items[0] = { w: 'cat', s: 'The cat sat.' };
       loadWord();
       const W = () => quiz.word;
-      check('write area shown, typing hidden', !$('#writeArea').hidden && $('#typeArea').hidden && !$('#checkBtn').hidden);
+      check('write area shown, typing hidden', !$('#writeArea').hidden && $('#typeArea').hidden);
       check('keyboard not focused', document.activeElement !== input);
       check('pad is big', pad.getBoundingClientRect().width >= Math.min(300, innerHeight / 2 - 1));
       check('medium starts with 1 box', W().boxes.length === 1);
-      check('next letter off until written', $('#nextLetterBtn').disabled);
+      check('nothing written: check is off', $('#nextLetterBtn').disabled && $('#nextLetterBtn').textContent === 'Check ✓');
       draw();
-      check('stroke goes to active box', W().boxes[0].strokes.length === 1 && !$('#nextLetterBtn').disabled);
+      check('after writing, button says next', W().boxes[0].strokes.length === 1 && !$('#nextLetterBtn').disabled && $('#nextLetterBtn').textContent === 'Next →');
       $('#undoBtn').click();
       check('undo removes stroke', W().boxes[0].strokes.length === 0);
-      $('#checkBtn').click();
+      checkWriting();
       check('check needs ink', !W().checked);
       draw();
       $('#nextLetterBtn').click();
@@ -156,10 +156,11 @@
       $('#nextLetterBtn').click();
       $('#hintBtn').click();
       check('hint ghosts letter in current box', W().boxes[2].ghost === 't' && W().hinted);
-      $('#checkBtn').click();
+      check('empty box after last letter: next becomes check', $('#nextLetterBtn').textContent === 'Check ✓' && !$('#nextLetterBtn').disabled);
+      $('#nextLetterBtn').click();
       check('check reveals letters', W().checked && [...document.querySelectorAll('#writeBoxes .answer')].map((x) => x.textContent).join('') === 'cat');
       check('unwritten box dashed', W().boxes[2].wrap.classList.contains('missing'));
-      check('self-mark buttons shown', !$('#markRightBtn').hidden && !$('#markWrongBtn').hidden && $('#checkBtn').hidden);
+      check('self-mark buttons shown', !$('#markRightBtn').hidden && !$('#markWrongBtn').hidden );
       $('#markRightBtn').click();
       check('marked right, not perfect (hint)', quiz.results[0].correct && !quiz.results[0].perfect && !$('#nextBtn').hidden);
       next();
@@ -167,7 +168,7 @@
       check('show me in write mode reveals', W().checked && !quiz.results[1].correct);
       next();
       draw();
-      $('#checkBtn').click();
+      checkWriting();
       $('#markWrongBtn').click();
       check('marked wrong goes to missed', quiz.missed.length === 2);
 
@@ -176,8 +177,13 @@
       quiz.items[0] = { w: 'dog', s: '' };
       loadWord();
       check('easy shows a box per letter', W().boxes.length === 3);
+      check('easy: first box says next', $('#nextLetterBtn').textContent === 'Next →');
       W().boxes[2].wrap.click();
-      check('easy: no next past last letter', $('#nextLetterBtn').disabled);
+      check('easy: last box says check, off until written', $('#nextLetterBtn').textContent === 'Check ✓' && $('#nextLetterBtn').disabled);
+      draw();
+      check('easy: check on after writing', !$('#nextLetterBtn').disabled);
+      $('#nextLetterBtn').click();
+      check('easy: check button checks', W().checked);
     } catch (e) {
       out.push(`FAIL exception: ${e.message}\n${e.stack}`);
     }

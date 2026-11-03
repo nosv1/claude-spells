@@ -98,6 +98,7 @@ function say(text) {
   if (!('speechSynthesis' in window) || !text) return;
   const busy = speechSynthesis.speaking || speechSynthesis.pending;
   speechSynthesis.cancel();
+  speechSynthesis.resume(); // Safari can get stuck paused (e.g. after the tab was in the background)
   const u = new SpeechSynthesisUtterance(text);
   const v = bestVoice();
   if (v) { u.voice = v; u.lang = v.lang; }
@@ -113,6 +114,11 @@ let audioCtx = null;
 function chime(good) {
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.resume();
+    // Suspend again afterwards: a running AudioContext can hold the audio session on
+    // iPhone and keep speech from playing.
+    clearTimeout(chime.timer);
+    chime.timer = setTimeout(() => audioCtx.suspend(), 600);
     const notes = good ? [660, 880] : [330, 247];
     notes.forEach((freq, i) => {
       const osc = audioCtx.createOscillator();
@@ -375,7 +381,6 @@ function loadWord() {
 
   $('#typeArea').hidden = writing();
   $('#writeArea').hidden = !writing();
-  $('#checkBtn').hidden = !writing();
   if (writing()) {
     input.blur(); // keep the phone keyboard away
     setupWriteArea();
@@ -513,7 +518,6 @@ function finishWord(correct) {
   $('#markRightBtn').hidden = true;
   $('#markWrongBtn').hidden = true;
   $('.write-tools').hidden = true;
-  $('#checkBtn').hidden = true;
   $('#nextBtn').hidden = false;
 }
 
@@ -636,10 +640,20 @@ function selectBox(i) {
   updateNextLetter();
 }
 
-function updateNextLetter() {
+// The Next button turns into Check on the last letter: the last box on easy, or
+// the empty box after the last written letter on medium/hard.
+function isCheckStep() {
   const w = quiz.word;
-  const onLast = w.active === w.boxes.length - 1;
-  $('#nextLetterBtn').disabled = onLast && (quiz.showSlots || !activeBox().strokes.length);
+  return w.active === w.boxes.length - 1 && (quiz.showSlots || !activeBox().strokes.length);
+}
+
+function updateNextLetter() {
+  const b = $('#nextLetterBtn');
+  const check = isCheckStep();
+  b.textContent = check ? 'Check ✓' : 'Next →';
+  b.classList.toggle('btn-primary', check);
+  b.classList.toggle('btn-ghost', !check);
+  b.disabled = check && !quiz.word.boxes.some((x) => x.strokes.length);
 }
 
 function nextLetter() {
@@ -744,7 +758,6 @@ function checkWriting() {
   $('.write-tools').hidden = true;
   $('#hintBtn').hidden = true;
   $('#giveUpBtn').hidden = true;
-  $('#checkBtn').hidden = true;
   $('#markRightBtn').hidden = false;
   $('#markWrongBtn').hidden = false;
   const it = currentItem();
@@ -753,8 +766,7 @@ function checkWriting() {
 
 $('#undoBtn').addEventListener('click', undoStroke);
 $('#clearBtn').addEventListener('click', clearLetter);
-$('#nextLetterBtn').addEventListener('click', nextLetter);
-$('#checkBtn').addEventListener('click', checkWriting);
+$('#nextLetterBtn').addEventListener('click', () => (isCheckStep() ? checkWriting() : nextLetter()));
 $('#markRightBtn').addEventListener('click', () => finishWord(true));
 $('#markWrongBtn').addEventListener('click', () => finishWord(false));
 window.addEventListener('resize', () => {
