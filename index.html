@@ -41,6 +41,13 @@
         </div>
         <small id="diffNote" class="note"></small>
       </div>
+      <div class="field">
+        <span>Answer by</span>
+        <div id="modeSeg" class="seg">
+          <button data-mode="type">⌨️ Typing</button>
+          <button data-mode="write">✍️ Handwriting</button>
+        </div>
+      </div>
       <label class="field"><span>Words</span><select id="sourceSelect"></select></label>
       <button id="startBtn" class="btn btn-primary btn-big">Start ▶</button>
     </div>
@@ -77,10 +84,20 @@
                autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
                aria-label="Type the word">
       </div>
+      <div id="writeArea" class="write-area" hidden>
+        <div id="writeBoxes" class="write-boxes"></div>
+        <div class="action-row write-tools">
+          <button id="undoBtn" class="btn btn-ghost">↶ Undo</button>
+          <button id="clearBtn" class="btn btn-ghost">🧽 Clear</button>
+          <button id="checkBtn" class="btn btn-primary">Check ✓</button>
+        </div>
+      </div>
       <p id="feedback" class="feedback" aria-live="polite"></p>
       <div class="action-row">
         <button id="hintBtn" class="btn btn-ghost">💡 Hint</button>
         <button id="giveUpBtn" class="btn btn-ghost">🙈 Show me</button>
+        <button id="markRightBtn" class="btn btn-primary" hidden>✓ I got it</button>
+        <button id="markWrongBtn" class="btn btn-ghost" hidden>✗ Not quite</button>
         <button id="nextBtn" class="btn btn-primary" hidden>Next →</button>
       </div>
     </div>

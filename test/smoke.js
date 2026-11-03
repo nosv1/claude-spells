@@ -115,6 +115,50 @@
       $('#meaningBtn').click();
       await new Promise((r) => setTimeout(r, 50));
       check('meaning shown with word blanked', $('#meaningText').textContent === '📖 A _____ is a made-up word.');
+
+      // Handwriting mode.
+      const draw = (box) => {
+        const r = box.canvas.getBoundingClientRect();
+        const at = (type, fx, fy) => box.canvas.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, clientX: r.left + r.width * fx, clientY: r.top + r.height * fy }));
+        at('pointerdown', 0.3, 0.3); at('pointermove', 0.5, 0.6); at('pointerup', 0.5, 0.6);
+      };
+      const p = db.profiles[0];
+      p.source = 'grade';
+      p.inputMode = 'write';
+      p.difficulty = 'medium';
+      show('setup');
+      check('mode toggle shows handwriting', $('#modeSeg .active').dataset.mode === 'write');
+      startQuiz();
+      quiz.items[0] = { w: 'cat', s: 'The cat sat.' };
+      loadWord();
+      check('write area shown, typing hidden', !$('#writeArea').hidden && $('#typeArea').hidden);
+      check('keyboard not focused', document.activeElement !== input);
+      check('medium starts with 1 box', quiz.word.boxes.length === 1);
+      draw(quiz.word.boxes[0]);
+      check('stroke recorded', quiz.word.boxes[0].strokes.length === 1);
+      check('box added after writing', quiz.word.boxes.length === 2);
+      $('#undoBtn').click();
+      check('undo removes stroke and extra box', quiz.word.boxes[0].strokes.length === 0 && quiz.word.boxes.length === 1);
+      $('#checkBtn').click();
+      check('check needs ink', !quiz.word.checked);
+      draw(quiz.word.boxes[0]);
+      draw(quiz.word.boxes[1]);
+      $('#hintBtn').click();
+      check('hint ghosts third letter', quiz.word.boxes[2].wrap.querySelector('.ghost').textContent === 't' && quiz.word.hinted);
+      $('#checkBtn').click();
+      check('check reveals letters', quiz.word.checked && [...document.querySelectorAll('#writeBoxes .answer')].map((x) => x.textContent).join('') === 'cat');
+      check('missing letter box dashed', quiz.word.boxes[2].wrap.classList.contains('missing'));
+      check('self-mark buttons shown', !$('#markRightBtn').hidden && !$('#markWrongBtn').hidden);
+      $('#markRightBtn').click();
+      check('marked right, not perfect (hint)', quiz.results[0].correct && !quiz.results[0].perfect && !$('#nextBtn').hidden);
+      next();
+      $('#giveUpBtn').click();
+      check('show me in write mode reveals', quiz.word.checked && !quiz.results[1].correct);
+      next();
+      draw(quiz.word.boxes[0]);
+      $('#checkBtn').click();
+      $('#markWrongBtn').click();
+      check('marked wrong goes to missed', quiz.missed.length === 2);
     } catch (e) {
       out.push(`FAIL exception: ${e.message}\n${e.stack}`);
     }
