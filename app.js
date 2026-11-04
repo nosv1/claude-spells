@@ -13,7 +13,11 @@ const DIFF_NOTES = {
   medium: 'Harder words. No letter boxes.',
   hard: 'The toughest words for this grade.',
 };
-const AVATARS = ['🦊', '🐼', '🦖', '🐙', '🦄', '🐸', '🚀', '🐯', '🐵', '🦉', '🐢', '⚡'];
+const AVATARS = [
+  '🦊', '🐼', '🦖', '🐙', '🦄', '🐸', '🚀', '🐯', '🐵', '🦉', '🐢', '⚡',
+  '🐶', '🐱', '🐰', '🐨', '🦁', '🐧', '🐬', '🦈', '🐝', '🦋', '🐲', '🦕',
+  '🤖', '👾', '🦸', '🧙', '⚽', '🏀', '🎸', '🎨', '🌈', '🍕', '🌮', '🏎️',
+];
 const CHEERS = ['Nice!', 'Great job!', 'You got it!', 'Awesome!', 'Nailed it!', 'Super speller!', 'Way to go!'];
 
 // ---------- storage ----------
