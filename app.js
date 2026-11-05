@@ -43,6 +43,7 @@ const ICONS = {
 const THEMES = [
   ['classic', 'Classic', 0, '#6c4cf5'],
   ['ocean', 'Ocean', 10, '#0e8fb8'],
+  ['flower', 'Flower', 20, '#c2357a'],
   ['jungle', 'Jungle', 25, '#2f9e44'],
   ['candy', 'Candy', 45, '#e64980'],
   ['sunset', 'Sunset', 70, '#f76707'],
@@ -57,6 +58,23 @@ const PENS = [
   ['tangerine', 'Tangerine', 75, '#f76707'],
   ['rainbow', 'Rainbow', 110, null], // changes color along the stroke
 ];
+// Name styles: [id, name, stars, font family, size, weight]. Only the player's name uses them:
+// the letters to spell always stay in plain print. Weight is the one the font comes in (asking
+// for another makes the browser fake it, which smears).
+const FONTS = [
+  ['classic', 'Classic', 0, "'Nunito'", 1, 900],
+  ['fancy', 'Fancy', 0, "'Dancing Script'", 1.15, 700],
+  ['bubbly', 'Bubbly', 10, "'Pacifico'", 0.95, 400],
+  ['comic', 'Comic', 20, "'Bangers'", 1.1, 400],
+  ['swirly', 'Swirly', 35, "'Satisfy'", 1.15, 400],
+  ['robot', 'Robot', 50, "'Orbitron'", 0.9, 800],
+  ['pixel', 'Pixel', 70, "'Press Start 2P'", 0.6, 400],
+];
+// A player's name in their name style.
+function nameHtml(p, text = p.name) {
+  const [, , , family, size, weight] = shopItem(FONTS, p.font);
+  return `<span class="player-name" style="font-family:${family}, 'Nunito', cursive;font-size:${size}em;font-weight:${weight}">${esc(text)}</span>`;
+}
 // Voice styles: [id, label, pitch, speed multiplier]. Pitch is ignored by some voices.
 const VOICE_STYLES = [
   ['happy', '😄 Happy', 1.35, 1.05],
@@ -69,17 +87,28 @@ const CHEERS = ['Nice!', 'Great job!', 'You got it!', 'Awesome!', 'Nailed it!', 
 
 // ---------- storage ----------
 
+// Bump to wipe everyone's stars once (themes and pens back to the free ones; history stays, so
+// mastered levels still count). 1: 2026-11-04, after the fair-stars rules, for stars farmed before.
+const STARS_EPOCH = 1;
+
 function freshDb() {
-  return { profiles: [], lists: [], settings: { rate: 0.85, voiceURI: '', pin: '' } };
+  return { profiles: [], lists: [], settings: { rate: 0.85, voiceURI: '', pin: '' }, starsEpoch: STARS_EPOCH };
+}
+
+// Saved data (from this browser or a backup file) brought up to date.
+function fromSaved(saved) {
+  const data = { ...freshDb(), ...saved, settings: { ...freshDb().settings, ...saved.settings } };
+  if ((saved.starsEpoch || 0) < STARS_EPOCH) {
+    data.profiles = data.profiles.map((p) => ({ ...p, stars: 0, theme: 'classic', pen: 'ink', font: 'classic' }));
+    data.starsEpoch = STARS_EPOCH;
+  }
+  return data;
 }
 
 function loadDb() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) {
-      const saved = JSON.parse(raw);
-      return { ...freshDb(), ...saved, settings: { ...freshDb().settings, ...saved.settings } };
-    }
+    if (raw) return fromSaved(JSON.parse(raw));
   } catch (e) { /* storage blocked or corrupt: run without saved data */ }
   return freshDb();
 }
@@ -243,7 +272,7 @@ const current = () => db.profiles.find((p) => p.id === currentId);
 function newProfile(name, avatar, grade) {
   return {
     id: uid(), name, avatar, grade,
-    difficulty: 'easy', source: 'grade', voiceStyle: 'happy', voiceURI: '', theme: 'classic', pen: 'ink',
+    difficulty: 'easy', source: 'grade', voiceStyle: 'happy', voiceURI: '', theme: 'classic', pen: 'ink', font: 'classic',
     history: [], words: {}, stars: 0,
     day: { last: '', count: 0 },
   };
@@ -361,7 +390,7 @@ function renderHome() {
   list.innerHTML = db.profiles.map((p) => `
     <button class="profile-card" data-id="${p.id}">
       <span class="avatar">${p.avatar}</span>
-      <span class="name">${esc(p.name)}</span>
+      <span class="name">${nameHtml(p)}</span>
       <span class="meta">${gradeLabel(p.grade)}</span><br>
       <span class="meta">🔥 ${dayStreak(p)} · ⭐ ${p.stars}</span>
     </button>`).join('');
@@ -426,7 +455,7 @@ function renderSetup() {
   $('#setupHeader').innerHTML = `
     <button class="avatar avatar-btn" aria-label="Change buddy" title="Change buddy">${p.avatar}</button>
     <div>
-      <div class="name">${esc(p.name)}</div>
+      <div class="name">${nameHtml(p)}</div>
       <div class="badges">
         <span class="badge">🔥 ${streak} day${streak === 1 ? '' : 's'}</span>
         <span class="badge">⭐ ${p.stars} stars</span>
@@ -1066,7 +1095,7 @@ function saveQuizResult() {
   bumpDayStreak(p);
   const before = p.stars;
   p.stars += stars;
-  const unlocks = [...THEMES.map((t) => [t, 'theme']), ...PENS.map((t) => [t, 'pen'])]
+  const unlocks = [...THEMES.map((t) => [t, 'theme']), ...FONTS.map((t) => [t, 'name style']), ...PENS.map((t) => [t, 'pen'])]
     .filter(([[, , cost]]) => cost > before && cost <= p.stars)
     .map(([[, name], kind]) => `${name} ${kind}`);
   p.history.push({
@@ -1090,7 +1119,8 @@ function showResults() {
   const missed = quiz.results.filter((r) => !r.correct);
 
   $('#resultStars').innerHTML = [0, 1, 2].map((i) => `<span class="${i < stars ? '' : 'dim'}">⭐</span>`).join('');
-  $('#resultTitle').textContent = stars === 3 ? `Amazing, ${p.name}!` : stars === 2 ? `Great work, ${p.name}!` : stars === 1 ? `Good effort, ${p.name}!` : `Keep practicing, ${p.name}!`;
+  const cheer = stars === 3 ? 'Amazing' : stars === 2 ? 'Great work' : stars === 1 ? 'Good effort' : 'Keep practicing';
+  $('#resultTitle').innerHTML = `${cheer}, ${nameHtml(p)}!`;
   const streak = dayStreak(p);
   $('#resultStats').innerHTML = [
     `✅ <b>${correct}</b> of ${total} correct`,
@@ -1140,11 +1170,12 @@ function penSwatch(id, color) {
   </svg>`;
 }
 
-function shopTile(kind, [id, name, cost, color], p) {
-  const using = (kind === 'theme' ? p.theme || 'classic' : p.pen || 'ink') === id;
+function shopTile(kind, list, [id, name, cost, color], p) {
+  const using = shopItem(list, p[kind])[0] === id;
   const locked = p.stars < cost;
   const preview = kind === 'theme'
     ? `<span class="theme-preview" data-theme="${id}"><i class="pv-card"><i class="pv-line"></i><i class="pv-line short"></i><i class="pv-btn"></i></i></span>`
+    : kind === 'font' ? `<span class="font-preview">${nameHtml({ ...p, font: id })}</span>`
     : penSwatch(id, color);
   const status = using ? 'Using'
     : locked ? `${LOCK_SVG}<span>${cost - p.stars} more ★</span>`
@@ -1159,8 +1190,9 @@ function renderShop() {
   const p = current();
   if (!p) return show('home');
   $('#shopStars').textContent = p.stars;
-  $('#themeGrid').innerHTML = THEMES.map((t) => shopTile('theme', t, p)).join('');
-  $('#penGrid').innerHTML = PENS.map((t) => shopTile('pen', t, p)).join('');
+  $('#themeGrid').innerHTML = THEMES.map((t) => shopTile('theme', THEMES, t, p)).join('');
+  $('#fontGrid').innerHTML = FONTS.map((t) => shopTile('font', FONTS, t, p)).join('');
+  $('#penGrid').innerHTML = PENS.map((t) => shopTile('pen', PENS, t, p)).join('');
 }
 
 $('#screen-shop').addEventListener('click', (e) => {
@@ -1428,7 +1460,7 @@ $('#importInput').addEventListener('change', async (e) => {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.profiles) || !Array.isArray(data.lists)) throw new Error('not a backup');
     if (!confirm('Replace everything on this device with the backup?')) return;
-    db = { ...freshDb(), ...data, settings: { ...freshDb().settings, ...data.settings } };
+    db = fromSaved(data);
     saveDb();
     $('#backupMsg').textContent = `Restored ${db.profiles.length} players and ${db.lists.length} lists.`;
   } catch (err) {

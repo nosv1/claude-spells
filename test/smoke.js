@@ -19,6 +19,12 @@
     check('version compare', newerVersion('2026.11.04.2', '2026.11.04.1') && newerVersion('2026.11.05.1', '2026.11.04.9')
       && !newerVersion('2026.11.04.1', '2026.11.04.1') && !newerVersion('2026.11.04.1', '2026.11.04.10'));
     check('no update banner from disk', $('#updateBtn').hidden);
+    const oldSave = { profiles: [{ name: 'A', stars: 40, theme: 'space', pen: 'rainbow', history: [{ correct: 9 }] }], settings: {} };
+    const reset = fromSaved(oldSave).profiles[0];
+    check('old saves get stars reset once', reset.stars === 0 && reset.theme === 'classic' && reset.pen === 'ink' && reset.font === 'classic' && reset.history.length === 1);
+    const kept = fromSaved({ ...oldSave, starsEpoch: STARS_EPOCH, profiles: [{ ...oldSave.profiles[0], stars: 40 }] }).profiles[0];
+    check('saves after the reset keep their stars', kept.stars === 40 && kept.theme === 'space');
+    check('fresh data needs no reset', freshDb().starsEpoch === STARS_EPOCH);
 
     db.profiles.push(newProfile('Tester', '🦊', '2'));
     currentId = db.profiles[0].id;
@@ -98,13 +104,18 @@
     renderShop();
     $('#themeGrid [data-id="ocean"]').click();
     check('unlocked theme picked and worn', sp.theme === 'ocean' && document.documentElement.dataset.theme === 'ocean');
+    check('shop lists name styles, cursive free', $('#fontGrid').children.length === FONTS.length
+      && !$('#fontGrid [data-id="fancy"]').classList.contains('locked'));
+    $('#fontGrid [data-id="fancy"]').click();
+    check('name style picked and shown', sp.font === 'fancy' && $('#fontGrid .using').dataset.id === 'fancy'
+      && nameHtml(sp).includes('Dancing Script'));
     $('#penGrid [data-id="grape"]').click();
     check('unlocked pen picked', sp.pen === 'grape' && $('#penGrid .using').dataset.id === 'grape');
     show('home');
     check('home stays classic', document.documentElement.dataset.theme === 'classic');
     show('setup');
     check('setup wears the theme', document.documentElement.dataset.theme === 'ocean');
-    Object.assign(sp, { stars: starsWere, theme: 'classic', pen: 'ink' });
+    Object.assign(sp, { stars: starsWere, theme: 'classic', pen: 'ink', font: 'classic' });
 
     // Change buddy.
     show('setup');
