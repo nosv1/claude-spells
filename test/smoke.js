@@ -78,6 +78,22 @@
     check('blank hides word', !$('#blankText').textContent.toLowerCase().includes(quiz.word.target) && $('#blankText').textContent.includes('_____'));
 
     check('every built-in word has a meaning', Object.values(WORDS).every((g) => Object.values(g).every((l) => l.every(([w]) => DEFS[w.toLowerCase()]))));
+    const bankProblems = [];
+    for (const [g, levels] of Object.entries(WORDS)) {
+      const inGrade = new Set();
+      for (const list of Object.values(levels)) {
+        for (const [w, s] of list) {
+          const lw = w.toLowerCase();
+          if (inGrade.has(lw)) bankProblems.push(`${g}: ${w} twice`);
+          inGrade.add(lw);
+          if (blankOut(s, w, '') === s) bankProblems.push(`${w}: sentence lacks it`);
+          else if (blankOut(s, w, '').toLowerCase().includes(lw)) bankProblems.push(`${w}: shows inside another word`);
+          if ((DEFS[lw] || '').toLowerCase().includes(lw)) bankProblems.push(`${w}: meaning uses it`);
+        }
+      }
+    }
+    check(`built-in words: sentences blank them, meanings don't show them${bankProblems.length ? ` (${bankProblems.join('; ')})` : ''}`, !bankProblems.length);
+    check('2nd, 6th and Adult have 60 words a level', ['2', '6', 'adult'].every((g) => Object.values(WORDS[g]).every((l) => l.length === 60)));
 
     // Rest correct.
     while (!quiz.reviewing && quiz.i < quiz.items.length) {
