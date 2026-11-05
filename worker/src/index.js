@@ -153,7 +153,10 @@ async function makeClip(env, voice, text) {
     const out = await env.AI.run('@cf/deepgram/aura-2-en', { text, speaker: voice, encoding: 'mp3' });
     const bytes = new Uint8Array(await new Response(out).arrayBuffer());
     return bytes.length ? bytes : null;
-  } catch (e) { return null; }
+  } catch (e) {
+    console.log('voice service:', e.message); // see it with: npx wrangler@4 tail
+    return null;
+  }
 }
 
 // ---------- the overnight fill ----------
