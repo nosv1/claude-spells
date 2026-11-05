@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Dancing+Script:wght@700&family=Pacifico&family=Bangers&family=Satisfy&family=Orbitron:wght@800&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.11.04.5">
+  <link rel="stylesheet" href="style.css?v=2026.11.05.1">
 </head>
 <body>
 <main id="app">
@@ -108,10 +108,8 @@
       <div class="listen-row">
         <button id="sayWordBtn" class="btn listen"><i class="ic" data-icon="speaker"></i><span>Word</span></button>
         <button id="saySentenceBtn" class="btn listen"><i class="ic" data-icon="bubble"></i><span>Sentence</span></button>
-        <button id="blankBtn" class="btn listen"><i class="ic" data-icon="pencil"></i><span>Fill the blank</span></button>
         <button id="meaningBtn" class="btn listen"><i class="ic" data-icon="book"></i><span>Meaning</span></button>
       </div>
-      <p id="blankText" class="blank-text" hidden></p>
       <p id="meaningText" class="blank-text meaning-text" hidden></p>
       <div id="typeArea" class="type-area">
         <div id="tiles" class="tiles" aria-hidden="true"></div>
@@ -192,6 +190,7 @@
       <div class="card">
         <h2>Voice</h2>
         <p class="note">The family voice. Each player can pick their own voice and style on their start screen. ★ voices sound the most natural.</p>
+        <p id="naturalNote" class="note" hidden>For the natural ★ voices, connect this device to Family sync (below).</p>
         <label class="field"><span>Voice</span><select id="voiceSelect"></select></label>
         <label class="field"><span>Speed <output id="rateOut"></output></span><input id="rateInput" type="range" min="0.5" max="1.2" step="0.05"></label>
         <button id="testVoiceBtn" class="btn btn-ghost"><i class="ic" data-icon="speaker"></i> Test voice</button>
@@ -278,9 +277,9 @@
 
 <div id="confetti" aria-hidden="true"></div>
 
-<script src="words.js?v=2026.11.04.5"></script>
-<script src="defs.js?v=2026.11.04.5"></script>
-<script src="app.js?v=2026.11.04.5"></script>
-<script src="sync.js?v=2026.11.04.5"></script>
+<script src="words.js?v=2026.11.05.1"></script>
+<script src="defs.js?v=2026.11.05.1"></script>
+<script src="app.js?v=2026.11.05.1"></script>
+<script src="sync.js?v=2026.11.05.1"></script>
 </body>
 </html>

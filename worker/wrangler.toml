@@ -10,3 +10,12 @@ workers_dev = true
 binding = "DB"
 database_name = "spellit"
 database_id = "9e5171ad-1ef3-4d74-b847-dea3cb631de8"
+
+# Workers AI, for the natural voices (/speak). wrangler dev runs it on the real service (it's billed).
+[ai]
+binding = "AI"
+
+# The overnight fill: every 2 minutes in the last hour before 00:00 UTC, when Workers AI's free daily
+# allowance resets, so it only uses what the day left over.
+[triggers]
+crons = ["*/2 23 * * *"]

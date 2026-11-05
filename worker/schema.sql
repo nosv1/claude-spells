@@ -20,3 +20,19 @@ CREATE TABLE IF NOT EXISTS fails (
   t INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS fails_t ON fails (t);
+
+-- Natural-voice clips (Workers AI text to speech), made once and kept: one per voice and text.
+CREATE TABLE IF NOT EXISTS clips (
+  voice TEXT NOT NULL,
+  text TEXT NOT NULL,
+  audio BLOB NOT NULL,
+  made INTEGER NOT NULL,
+  PRIMARY KEY (voice, text)
+);
+
+-- Characters sent to the voice service each day (UTC), to stay inside Workers AI's free daily
+-- allowance (10,000 neurons, about 3,600 characters of Aura-2).
+CREATE TABLE IF NOT EXISTS spend (
+  day TEXT PRIMARY KEY,
+  chars INTEGER NOT NULL
+);

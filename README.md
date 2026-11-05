@@ -4,8 +4,8 @@ A spelling practice app for kids (and grown-ups). It says a word out loud and yo
 green or red as you type it.
 
 - **Grades 1–8 plus Adult**, each with Easy / Medium / Hard word lists ([words.js](words.js)).
-- **Four clues:** the word, the word in a sentence, the sentence with the word blanked out, and
-  what the word means. Built-in meanings are in [defs.js](defs.js). Words without one are looked up at
+- **Three clues:** the word, the word in a sentence, and what the word means (with the word
+  itself blanked out). Built-in meanings are in [defs.js](defs.js). Words without one are looked up at
   [dictionaryapi.dev](https://dictionaryapi.dev/).
 - **Quizzes are 10 words** with one hint each. Missed words come back in a practice round at the end.
 - **Players** each get their own stars, day streak, and missed-words list.
@@ -19,8 +19,12 @@ its own. Use **Parent mode → Settings → Backup** to move it between devices.
 
 Open `index.html` in a browser. That's it.
 
-Speech uses the browser's built-in voices, so quality depends on the device. Safari on iPad/Mac and
-Edge on Windows have the most natural ones. Pick a voice in Parent mode → Settings.
+**Voices.** A device joined to Family sync gets the natural ★ voices: neural text to speech
+(Deepgram Aura-2 on Cloudflare Workers AI) through the sync Worker. Each clip is made once and kept,
+and new clips stop for the day inside Workers AI's free allowance, so it costs nothing. Each night,
+what's left of the allowance makes clips ahead: the family's own lists first, then the built-in words. Without sync,
+offline, or once the day's new clips are used up, it uses the browser's own voices, which depend on
+the device. Pick a voice in Parent mode → Settings.
 
 ## Publish on GitHub Pages
 
@@ -39,5 +43,5 @@ Chromium browser.
 ## Adding built-in words
 
 Add `['word', 'A sentence that uses the word.']` to the right grade and difficulty in
-[words.js](words.js). The sentence must contain the word exactly so it can be blanked out. Avoid
-sentences where the word is hiding inside another word ("snow" in "snowman").
+[words.js](words.js). The sentence must use the word exactly. Its meaning in [defs.js](defs.js)
+shouldn't use the word, because the word shows as a blank there.

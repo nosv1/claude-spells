@@ -1,5 +1,5 @@
 // Built-in word bank: WORDS[grade][difficulty] = [[word, sentence], ...]
-// Every sentence must contain its word exactly, so it can be blanked out.
+// Every sentence must use its word exactly.
 // Parents can add more lists in Parent mode; those live in the browser, not here.
 const WORDS = {
   '1': {

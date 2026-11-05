@@ -257,6 +257,7 @@ $('#syncConnectBtn').addEventListener('click', async () => {
   }
   $('#syncConnectBtn').disabled = false;
   renderSync();
+  renderVoiceSelect(); // natural voices come with sync
 });
 
 $('#syncNowBtn').addEventListener('click', async () => {
@@ -269,6 +270,7 @@ $('#syncOffBtn').addEventListener('click', () => {
   syncDisconnect();
   $('#syncMsg').textContent = 'Sync is off on this device. Its players stay here.';
   renderSync();
+  renderVoiceSelect();
 });
 
 // ---------- when to sync ----------

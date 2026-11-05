@@ -17,7 +17,11 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
 - **Family sync** (`sync.js`, API in `worker/`): a Cloudflare Worker + D1 on the same account as
   Ride Finder, at `https://spellit-sync.nosv1.workers.dev`. No accounts: the family PIN is the
   Worker secret `FAMILY_PIN` (never in the repo). Deploy: `cd worker && npx wrangler@4 deploy`.
-  Test: `node --test test/worker.test.mjs` against `npx wrangler@4 dev --port 8792`.
+  Test: `node --test test/worker.test.mjs test/fill.test.mjs` against
+  `npx wrangler@4 dev --port 8792 --test-scheduled`.
+- **Natural voices** (`/speak` on the same Worker): Workers AI Aura-2, clips kept in D1, capped at
+  `DAILY_CHARS` a day so it stays inside the free allowance. A cron in the last UTC hour spends what's
+  left making clips ahead (`worker/src/fill.js`). **Chris won't pay for this**: keep it free.
 - **Run it:** open `index.html`. **Test:** `bash test/run.sh` (headless Edge).
 - **Before pushing a change the site serves:** `node tools/bump_version.mjs` (updates
   `version.json`, `APP_VERSION` and the `?v=` links, so open iPads see an Update banner).

@@ -2,7 +2,7 @@
 
 // The version this copy of the app is; version.json on the site is the latest.
 // Bump both before pushing: node tools/bump_version.mjs
-const APP_VERSION = '2026.11.04.5';
+const APP_VERSION = '2026.11.05.1';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -92,7 +92,7 @@ const CHEERS = ['Nice!', 'Great job!', 'You got it!', 'Awesome!', 'Nailed it!', 
 const STARS_EPOCH = 1;
 
 function freshDb() {
-  return { profiles: [], lists: [], settings: { rate: 0.85, voiceURI: '', pin: '' }, starsEpoch: STARS_EPOCH };
+  return { profiles: [], lists: [], settings: { rate: 0.85, voiceURI: '', pin: '', naturalVoices: true }, starsEpoch: STARS_EPOCH };
 }
 
 // Saved data (from this browser or a backup file) brought up to date.
@@ -101,6 +101,10 @@ function fromSaved(saved) {
   if ((saved.starsEpoch || 0) < STARS_EPOCH) {
     data.profiles = data.profiles.map((p) => ({ ...p, stars: 0, theme: 'classic', pen: 'ink', font: 'classic' }));
     data.starsEpoch = STARS_EPOCH;
+  }
+  if (!saved.settings?.naturalVoices) { // 2026-11-05: natural voices are new, so the family voice picks one
+    data.settings.voiceURI = '';
+    data.settings.naturalVoices = true;
   }
   return data;
 }
@@ -178,6 +182,9 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: false });
 
 // ---------- speech ----------
+// Two kinds of voice. Natural voices come from the family sync Worker (Workers AI, inside its free
+// daily allowance), so they need this device joined to Family sync. Device voices are the
+// browser's own: the fallback when offline, not joined, or the day's new clips are used up.
 
 let voices = [];
 
@@ -203,7 +210,25 @@ function voiceLabel(v) {
   return `${voiceRank(v) === 3 ? '★ ' : ''}${v.name} (${v.lang})`;
 }
 
-// The player's own voice wins, then the family default from Settings, then the best one available.
+// Natural voices: [Aura-2 speaker, label]. The Worker has the same list (worker/src/index.js).
+const NATURAL_VOICES = [
+  ['thalia', 'Thalia (woman)'], ['luna', 'Luna (woman)'], ['helena', 'Helena (woman)'],
+  ['asteria', 'Asteria (woman)'], ['athena', 'Athena (woman)'], ['apollo', 'Apollo (man)'],
+  ['arcas', 'Arcas (man)'], ['orion', 'Orion (man)'], ['zeus', 'Zeus (man)'],
+];
+const NATURAL = 'natural:'; // a voiceURI that starts with this is a natural voice
+const naturalOn = () => typeof syncState !== 'undefined' && !!syncState.pin;
+const isNatural = (uri) => NATURAL_VOICES.some(([k]) => NATURAL + k === uri);
+const usable = (uri) => !!uri && (isNatural(uri) ? naturalOn() : voices.some((v) => v.voiceURI === uri));
+
+// The voice to use: the player's own, then the family one from Settings, then the first natural
+// voice (or the best device voice when natural ones aren't available here).
+function voiceFor(who) {
+  return [who?.voiceURI, db.settings.voiceURI].find(usable)
+    || (naturalOn() ? NATURAL + NATURAL_VOICES[0][0] : bestVoice()?.voiceURI || '');
+}
+
+// The best device voice: the player's own, then the family one, then the best one available.
 function bestVoice(uri) {
   const chosen = (uri && voices.find((v) => v.voiceURI === uri))
     || voices.find((v) => v.voiceURI === db.settings.voiceURI);
@@ -216,13 +241,162 @@ function bestVoice(uri) {
   return voices.find((v) => /en[-_]us/i.test(v.lang)) || voices[0] || null;
 }
 
+// <option>s for a voice <select>: natural voices first (when this device can use them).
+function voiceOptions(selected) {
+  const opt = (uri, label) => `<option value="${esc(uri)}"${uri === selected ? ' selected' : ''}>${esc(label)}</option>`;
+  const natural = naturalOn() ? NATURAL_VOICES.map(([k, label]) => opt(NATURAL + k, `★ ${label}`)).join('') : '';
+  const device = sortedVoices().map((v) => opt(v.voiceURI, voiceLabel(v))).join('');
+  if (!natural) return device;
+  return `<optgroup label="Natural voices (best)">${natural}</optgroup>`
+    + (device ? `<optgroup label="This device's voices">${device}</optgroup>` : '');
+}
+
 function voiceStyle(id) {
   return VOICE_STYLES.find(([k]) => k === id) || VOICE_STYLES[0];
 }
 
+// --- natural voice clips ---
+// Each clip is fetched once, then kept: in memory (ready, so it can play straight from a tap, which
+// iPad wants) and in the browser's Cache Storage (so it's there next time, even offline).
+const CLIP_STORE = 'spellit-voice-1';
+const clipReady = new Map(); // 'voice|text' → Blob
+const clipLoading = new Map(); // 'voice|text' → Promise<Blob|null>
+let naturalPausedUntil = 0; // after the service says no (or can't be reached), new clips wait a bit
+
+const clipText = (text) => text.replace(/\s+/g, ' ').trim();
+
+function clip(voice, text) {
+  text = clipText(text);
+  const key = `${voice}|${text}`;
+  if (clipReady.has(key)) return Promise.resolve(clipReady.get(key));
+  if (!clipLoading.has(key)) {
+    clipLoading.set(key, loadClip(voice, text).catch(() => null).then((b) => {
+      clipLoading.delete(key);
+      if (b) clipReady.set(key, b);
+      return b;
+    }));
+  }
+  return clipLoading.get(key);
+}
+
+async function loadClip(voice, text) {
+  const cacheUrl = `${SYNC_API}/speak/${voice}/${encodeURIComponent(text)}`; // a name in the cache, not a real address
+  // Cache Storage can hang instead of failing (it does for a page opened from disk), so give up on it quickly.
+  const within = (p) => Promise.race([p, new Promise((res, no) => setTimeout(() => no(new Error('slow')), 1500))]);
+  let store = null;
+  try {
+    if (location.protocol !== 'file:') {
+      store = await within(caches.open(CLIP_STORE));
+      const hit = await within(store.match(cacheUrl));
+      if (hit) return await hit.blob();
+    }
+  } catch (e) { store = null; }
+  if (Date.now() < naturalPausedUntil || !navigator.onLine || !naturalOn()) return null;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const r = await fetch(`${SYNC_API}/speak`, {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'Content-Type': 'application/json', 'X-Family-Pin': syncState.pin },
+      body: JSON.stringify({ text, voice }),
+    });
+    if (!r.ok) {
+      // 503: the day's free clips are used up. Anything else but a bad request: try again soon.
+      if (r.status !== 400) naturalPausedUntil = Date.now() + (r.status === 503 ? 15 * 60e3 : 60e3);
+      return null;
+    }
+    const blob = await r.blob();
+    store?.put(cacheUrl, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })).catch(() => { /* full */ });
+    return blob;
+  } catch (e) {
+    naturalPausedUntil = Date.now() + 60e3;
+    return null;
+  } finally { clearTimeout(timer); }
+}
+
+// How each character is said when spelling a word out: one short clip per letter, shared by every
+// word. ("I." alone sounds like "you", so it's "Eye.")
+const letterClip = (ch) => (ch === 'i' ? 'Eye.' : /[a-z]/.test(ch) ? `${ch.toUpperCase()}.`
+  : ch === "'" ? 'Apostrophe.' : ch === '-' ? 'Dash.' : '');
+const spellClips = (word) => [...word.toLowerCase()].map(letterClip).filter(Boolean);
+
+// Fetch ahead what a quiz says first: each word and its letters.
+function prefetchSpeech(items, who) {
+  const uri = voiceFor(who);
+  if (!isNatural(uri)) return;
+  const voice = uri.slice(NATURAL.length);
+  items.forEach((it) => [it.w, ...spellClips(it.w)].forEach((t) => clip(voice, t)));
+}
+
+const voiceEl = new Audio();
+let sayToken = 0;
+
+// A moment of silence played on the first tap, so iPad lets this audio element play later by
+// itself (when a clip arrives after the tap).
+const SILENCE = (() => {
+  const n = 400, b = new Uint8Array(44 + n).fill(128), v = new DataView(b.buffer);
+  const str = (o, t) => [...t].forEach((c, i) => { b[o + i] = c.charCodeAt(0); });
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true);
+  v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, 'data'); v.setUint32(40, n, true);
+  return `data:audio/wav;base64,${btoa(String.fromCharCode(...b))}`;
+})();
+let voiceUnlocked = false;
+function unlockVoice() {
+  if (voiceUnlocked || !voiceEl.paused) return;
+  voiceUnlocked = true;
+  voiceEl.src = SILENCE;
+  voiceEl.play().catch(() => { voiceUnlocked = false; });
+}
+['touchend', 'click', 'keydown'].forEach((t) => document.addEventListener(t, unlockVoice, true));
+
+function stopSpeech() {
+  sayToken++;
+  voiceEl.pause();
+  window.speechSynthesis?.cancel();
+}
+
 // who: a player (uses their voice and style), or null for the family default.
-function say(text, who = current()) {
-  if (!('speechSynthesis' in window) || !text) return;
+// parts: what a natural voice says, as clips played one after another (by default, just the text).
+function say(text, who = current(), parts = [text]) {
+  if (!text) return;
+  const token = ++sayToken;
+  voiceEl.pause();
+  const uri = voiceFor(who);
+  if (!isNatural(uri)) return sayDevice(text, who);
+  window.speechSynthesis?.cancel();
+  const voice = uri.slice(NATURAL.length);
+  const play = (blobs) => {
+    if (token !== sayToken) return; // something newer was said meanwhile
+    if (!blobs.every(Boolean)) return sayDevice(text, who);
+    const [, , pitch, speed] = voiceStyle(who ? who.voiceStyle : 'normal');
+    // Squeaky and Deep shift the pitch (which changes the speed too); the others keep the voice's
+    // own pitch. The speed setting's default (0.85) plays a clip at its own speed.
+    const shift = pitch > 1.5 ? 1.25 : pitch < 0.8 ? 0.85 : 1;
+    if (voiceEl.src.startsWith('blob:')) URL.revokeObjectURL(voiceEl.src);
+    voiceEl.src = URL.createObjectURL(blobs.length === 1 ? blobs[0] : new Blob(blobs, { type: 'audio/mpeg' }));
+    voiceEl.preservesPitch = voiceEl.webkitPreservesPitch = shift === 1;
+    voiceEl.defaultPlaybackRate = voiceEl.playbackRate = Math.min(2, Math.max(0.5, (db.settings.rate / 0.85) * speed * shift));
+    say.last = { text, voice, rate: voiceEl.playbackRate };
+    voiceEl.play().catch(() => { if (token === sayToken) sayDevice(text, who); });
+  };
+  const keys = parts.map((t) => `${voice}|${clipText(t)}`);
+  if (keys.every((k) => clipReady.has(k))) return play(keys.map((k) => clipReady.get(k))); // straight from the tap
+  // Not here yet: wait for it, but not for long.
+  Promise.race([
+    Promise.all(parts.map((t) => clip(voice, t))),
+    new Promise((res) => setTimeout(() => res([null]), 4000)),
+  ]).then(play);
+}
+
+// Spell a word out: "cat. c, a, t." (again: and the word once more at the end).
+function saySpelled(word, again) {
+  const text = `${word}. ${[...word.toLowerCase()].join(', ')}.${again ? ` ${word}.` : ''}`;
+  say(text, current(), [word, ...spellClips(word), ...(again ? [word] : [])]);
+}
+
+function sayDevice(text, who) {
+  if (!('speechSynthesis' in window)) return;
   const busy = speechSynthesis.speaking || speechSynthesis.pending;
   speechSynthesis.cancel();
   speechSynthesis.resume(); // Safari can get stuck paused (e.g. after the tab was in the background)
@@ -512,9 +686,7 @@ function renderPlayerVoice() {
   const style = voiceStyle(p.voiceStyle)[0];
   $('#styleSeg').innerHTML = VOICE_STYLES.map(([k, label]) =>
     `<button data-style="${k}"${k === style ? ' class="active"' : ''}>${label}</button>`).join('');
-  const uri = voices.some((v) => v.voiceURI === p.voiceURI) ? p.voiceURI : '';
-  $('#playerVoiceSelect').innerHTML = `<option value="">Family voice</option>` + sortedVoices().map((v) =>
-    `<option value="${esc(v.voiceURI)}"${v.voiceURI === uri ? ' selected' : ''}>${esc(voiceLabel(v))}</option>`).join('');
+  $('#playerVoiceSelect').innerHTML = `<option value="">Family voice</option>` + voiceOptions(usable(p.voiceURI) ? p.voiceURI : '');
 }
 
 const VOICE_SAMPLE = 'Hi! Can you spell happy? I am so happy to see you.';
@@ -570,6 +742,7 @@ function startQuiz() {
     showSlots: p.difficulty === 'easy',
     mode: p.inputMode || 'type',
   };
+  prefetchSpeech(quiz.items, p);
   show('quiz');
   $('#reviewBanner').hidden = true;
   loadWord();
@@ -590,7 +763,6 @@ function loadWord() {
 
   input.value = '';
   input.readOnly = false;
-  $('#blankText').hidden = true;
   $('#meaningText').hidden = true;
   $('#feedback').textContent = '';
   $('#feedback').className = 'feedback';
@@ -600,7 +772,6 @@ function loadWord() {
   $('#markRightBtn').hidden = true;
   $('#markWrongBtn').hidden = true;
   $('#saySentenceBtn').disabled = !it.s;
-  $('#blankBtn').disabled = !it.s;
   renderHint();
 
   $('#typeArea').hidden = writing();
@@ -736,7 +907,7 @@ function finishWord(correct) {
       renderTiles('', 'reveal');
       setFeedback('Here\'s how to spell it:', 'miss');
     }
-    say(`${it.w}. ${[...it.w.toLowerCase()].join(', ')}. ${it.w}.`);
+    saySpelled(it.w, true);
   }
   $('#giveUpBtn').hidden = true;
   $('#hintBtn').hidden = true;
@@ -999,7 +1170,7 @@ function checkWriting() {
   $('#markRightBtn').hidden = false;
   $('#markWrongBtn').hidden = false;
   const it = currentItem();
-  say(`${it.w}. ${[...it.w.toLowerCase()].join(', ')}.`);
+  saySpelled(it.w, false);
 }
 
 $('#undoBtn').addEventListener('click', undoStroke);
@@ -1057,19 +1228,12 @@ $('#meaningBtn').addEventListener('click', async () => {
 
 $('#sayWordBtn').addEventListener('click', () => { say(currentItem().w); focusInput(); });
 $('#saySentenceBtn').addEventListener('click', () => { say(currentItem().s); focusInput(); });
-$('#blankBtn').addEventListener('click', () => {
-  const it = currentItem();
-  $('#blankText').textContent = blankOut(it.s, it.w, '_____');
-  $('#blankText').hidden = false;
-  say(blankOut(it.s, it.w, 'blank'));
-  focusInput();
-});
 $('#hintBtn').addEventListener('click', hint);
 $('#giveUpBtn').addEventListener('click', () => { if (!quiz.word.done) finishWord(false); });
 $('#nextBtn').addEventListener('click', next);
 $('#skipReviewBtn').addEventListener('click', showResults);
 $('#quitBtn').addEventListener('click', () => {
-  window.speechSynthesis?.cancel();
+  stopSpeech();
   if (quiz.reviewing || confirm('Quit this quiz? Your progress on it won\'t be scored.')) {
     quiz = null;
     show('setup');
@@ -1293,8 +1457,7 @@ function parseListText(text) {
     const [w, s, d] = line.split('|').map((x) => x.trim()).concat('', '');
     if (!w) return;
     if (/[^a-zA-Z'-]/.test(w)) warnings.push(`"${w}" has spaces or symbols, which makes it hard to type.`);
-    if (s && blankOut(s, w, '') === s) warnings.push(`The sentence for "${w}" doesn't contain the word, so nothing will be blanked out.`);
-    else if (s && blankOut(s, w, '').toLowerCase().includes(w.toLowerCase())) warnings.push(`The sentence for "${w}" still shows the word inside another word (like "snow" in "snowman").`);
+    if (s && blankOut(s, w, '') === s) warnings.push(`The sentence for "${w}" doesn't use the word. Is there a typo?`);
     if (d && d.toLowerCase().includes(w.toLowerCase())) warnings.push(`The meaning for "${w}" uses the word itself, so it will show as a blank.`);
     words.push(d ? { w, s, d } : { w, s });
   });
@@ -1408,10 +1571,8 @@ $('#tab-players').addEventListener('click', (e) => {
 // Settings
 
 function renderVoiceSelect() {
-  const chosen = bestVoice();
-  $('#voiceSelect').innerHTML = voices.length
-    ? sortedVoices().map((v) => `<option value="${esc(v.voiceURI)}"${v === chosen ? ' selected' : ''}>${esc(voiceLabel(v))}</option>`).join('')
-    : '<option>No English voices found</option>';
+  $('#voiceSelect').innerHTML = voiceOptions(voiceFor(null)) || '<option>No English voices found</option>';
+  $('#naturalNote').hidden = naturalOn();
 }
 
 function renderSettings() {

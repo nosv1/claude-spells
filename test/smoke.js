@@ -25,6 +25,8 @@
     const kept = fromSaved({ ...oldSave, starsEpoch: STARS_EPOCH, profiles: [{ ...oldSave.profiles[0], stars: 40 }] }).profiles[0];
     check('saves after the reset keep their stars', kept.stars === 40 && kept.theme === 'space');
     check('fresh data needs no reset', freshDb().starsEpoch === STARS_EPOCH);
+    check('old saves: family voice back to automatic once', fromSaved({ settings: { voiceURI: 'x' } }).settings.voiceURI === ''
+      && fromSaved({ settings: { voiceURI: 'x', naturalVoices: true } }).settings.voiceURI === 'x');
 
     db.profiles.push(newProfile('Tester', '🦊', '2'));
     currentId = db.profiles[0].id;
@@ -73,9 +75,7 @@
     check('give up reveals word', $('#tiles').textContent === missedWord);
     next();
 
-    // Blank sentence.
-    $('#blankBtn').click();
-    check('blank hides word', !$('#blankText').textContent.toLowerCase().includes(quiz.word.target) && $('#blankText').textContent.includes('_____'));
+    check('no fill-the-blank clue', !$('#blankBtn') && !$('#blankText'));
 
     check('every built-in word has a meaning', Object.values(WORDS).every((g) => Object.values(g).every((l) => l.every(([w]) => DEFS[w.toLowerCase()]))));
     const bankProblems = [];
@@ -87,12 +87,11 @@
           if (inGrade.has(lw)) bankProblems.push(`${g}: ${w} twice`);
           inGrade.add(lw);
           if (blankOut(s, w, '') === s) bankProblems.push(`${w}: sentence lacks it`);
-          else if (blankOut(s, w, '').toLowerCase().includes(lw)) bankProblems.push(`${w}: shows inside another word`);
           if ((DEFS[lw] || '').toLowerCase().includes(lw)) bankProblems.push(`${w}: meaning uses it`);
         }
       }
     }
-    check(`built-in words: sentences blank them, meanings don't show them${bankProblems.length ? ` (${bankProblems.join('; ')})` : ''}`, !bankProblems.length);
+    check(`built-in words: sentences use them, meanings don't show them${bankProblems.length ? ` (${bankProblems.join('; ')})` : ''}`, !bankProblems.length);
     check('2nd, 6th and Adult have 60 words a level', ['2', '6', 'adult'].every((g) => Object.values(WORDS[g]).every((l) => l.length === 60)));
     check('every grade has at least 40 words a level', Object.values(WORDS).every((g) => Object.values(g).every((l) => l.length >= 40)));
 
@@ -345,9 +344,43 @@
       activeTab = 'settings';
       renderParent();
       check('settings show sync on', !$('#syncOn').hidden && $('#syncStatus').textContent.startsWith('On.'));
+
+      // Natural voices (they come with sync), against a stand-in for /speak.
+      const spoken = [];
+      window.fetch = async (url, opts) => {
+        const { text } = JSON.parse(opts.body);
+        spoken.push(text);
+        if (text === 'used up') return { ok: false, status: 503 };
+        return { ok: true, status: 200, blob: async () => new Blob(['mp3'], { type: 'audio/mpeg' }) };
+      };
+      const tick = () => new Promise((r) => setTimeout(r, 50));
+      voiceEl.play = () => Promise.resolve(); // nothing to hear here
+      currentId = hp.id;
+      check('settings list natural voices first', $('#voiceSelect').options[0].value === 'natural:thalia' && $('#naturalNote').hidden);
+      say('apple', hp);
+      await tick();
+      check('says it in a natural voice', say.last.voice === 'thalia' && spoken.includes('apple') && Math.abs(say.last.rate - 1.05) < 0.01);
+      saySpelled('tie', true);
+      await tick();
+      check('spelling: one clip per letter, "I" as "Eye."', ['T.', 'Eye.', 'E.'].every((t) => spoken.includes(t))
+        && spoken.filter((t) => t === 'tie').length === 1 && say.last.text === 'tie. t, i, e. tie.');
+      hp.voiceStyle = 'squeaky';
+      const before = spoken.length;
+      say('apple', hp);
+      check('a kept clip plays straight away, no fetch', say.last.text === 'apple' && spoken.length === before);
+      check('squeaky shifts the pitch', Math.abs(say.last.rate - 1.375) < 0.01 && voiceEl.preservesPitch === false);
+      hp.voiceStyle = 'happy';
+      prefetchSpeech([{ w: 'dog' }], hp);
+      await tick();
+      check('a quiz fetches its words and letters ahead', ['dog', 'D.', 'O.', 'G.'].every((t) => spoken.includes(t)));
+      say('used up', hp);
+      await tick();
+      check("day's clips used up: device voice", !('speechSynthesis' in window) || say.last instanceof SpeechSynthesisUtterance);
+      naturalPausedUntil = 0;
       syncDisconnect();
       renderParent();
       check('turned off: players stay', !syncState.pin && db.profiles.length === 1 && !$('#syncOff').hidden);
+      check('turned off: device voices again', !isNatural(voiceFor(hp)) && !$('#naturalNote').hidden);
       localStorage.removeItem(SYNC_KEY);
     } catch (e) {
       out.push(`FAIL exception: ${e.message}\n${e.stack}`);
