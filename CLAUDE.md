@@ -15,4 +15,6 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
 - **No build step, no dependencies.** `index.html` + `style.css` + `app.js` + `words.js`.
   Keep it that way so Pages serves the repo root as-is.
 - **Run it:** open `index.html`. **Test:** `bash test/run.sh` (headless Edge).
+- **Before pushing a change the site serves:** `node tools/bump_version.mjs` (updates
+  `version.json`, `APP_VERSION` and the `?v=` links, so open iPads see an Update banner).
 - Ideas not built yet go in [BACKLOG.md](BACKLOG.md).

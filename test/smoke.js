@@ -15,6 +15,11 @@
     window.confirm = () => true;
     window.alert = () => {};
 
+    check('version shown on home', $('#screen-home .app-version').textContent === `Version ${APP_VERSION}`);
+    check('version compare', newerVersion('2026.11.04.2', '2026.11.04.1') && newerVersion('2026.11.05.1', '2026.11.04.9')
+      && !newerVersion('2026.11.04.1', '2026.11.04.1') && !newerVersion('2026.11.04.1', '2026.11.04.10'));
+    check('no update banner from disk', $('#updateBtn').hidden);
+
     db.profiles.push(newProfile('Tester', '🦊', '2'));
     currentId = db.profiles[0].id;
     show('setup');

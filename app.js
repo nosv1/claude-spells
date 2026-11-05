@@ -1,5 +1,8 @@
 'use strict';
 
+// The version this copy of the app is; version.json on the site is the latest.
+// Bump both before pushing: node tools/bump_version.mjs
+const APP_VERSION = '2026.11.04.1';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -1255,5 +1258,28 @@ if ('speechSynthesis' in window) {
 } else {
   $('#noSpeech').hidden = false;
 }
+
+// ---------- version + updates ----------
+// An app added to the iPad's home screen often just resumes where it was, so check the site's
+// version.json when it opens and each time it comes back to the front. A newer one shows an
+// Update banner on the home screen (never mid-quiz). Progress is saved, so reloading loses nothing.
+const newerVersion = (a, b) => {
+  const x = a.split('.').map(Number), y = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+};
+async function checkForUpdate() {
+  if (location.protocol === 'file:') return; // opened from disk: there's no site to ask
+  try {
+    const { version } = await (await fetch('version.json', { cache: 'no-store' })).json();
+    if (!version || !newerVersion(version, APP_VERSION)) return;
+    $('#updateBtn').textContent = `✨ A new version is out (${version}). Tap to update.`;
+    $('#updateBtn').hidden = false;
+  } catch (e) { /* offline: nothing to compare with */ }
+}
+$('#updateBtn').addEventListener('click', () => location.reload());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
+document.querySelectorAll('.app-version').forEach((el) => { el.textContent = `Version ${APP_VERSION}`; });
+checkForUpdate();
 
 show('home');
