@@ -19,6 +19,14 @@
     currentId = db.profiles[0].id;
     show('setup');
     check('setup renders grade', $('#gradeSelect').value === '2');
+    check('voice styles shown, happy by default', $('#styleSeg').children.length === VOICE_STYLES.length
+      && $('#styleSeg .active').dataset.style === 'happy');
+    $('#styleSeg [data-style="squeaky"]').click();
+    check('picking a style saves it', current().voiceStyle === 'squeaky' && $('#styleSeg .active').dataset.style === 'squeaky');
+    if ('speechSynthesis' in window) check('style sets the pitch', say.last && Math.abs(say.last.pitch - 1.9) < 0.01);
+    say('test', null);
+    check('family voice ignores player style', say.last.pitch === 1);
+    current().voiceStyle = 'happy';
 
     startQuiz();
     check('quiz has 10 words', quiz.items.length === 10);

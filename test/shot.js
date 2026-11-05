@@ -11,6 +11,7 @@
   currentId = a.id;
   const screen = location.hash.slice(1) || 'home';
   if (screen === 'home') show('home');
+  if (screen === 'setup') show('setup');
   if (screen === 'quiz' || screen === 'results') {
     startQuiz();
     quiz.items[0] = { w: 'because', s: 'I wore a coat because it was cold.' };

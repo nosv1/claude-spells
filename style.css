@@ -128,6 +128,12 @@ input[type="range"] { width: 100%; }
 .seg button.active[data-diff="easy"] { background: var(--ok); border-color: var(--ok); color: #fff; }
 .seg button.active[data-diff="medium"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .seg button.active[data-diff="hard"] { background: var(--bad); border-color: var(--bad); color: #fff; }
+.seg-wrap { flex-wrap: wrap; }
+.seg-wrap button { flex: 1 1 30%; padding: 10px 6px; }
+.seg button.active[data-style] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.voice-row { display: flex; gap: 8px; margin-top: 8px; }
+.voice-row select { flex: 1; min-width: 0; }
+.voice-row .btn { flex: none; }
 .seg button.active[data-mode] { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 /* ---------- home ---------- */

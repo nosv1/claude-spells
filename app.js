@@ -18,6 +18,14 @@ const AVATARS = [
   '🐶', '🐱', '🐰', '🐨', '🦁', '🐧', '🐬', '🦈', '🐝', '🦋', '🐲', '🦕',
   '🤖', '👾', '🦸', '🧙', '⚽', '🏀', '🎸', '🎨', '🌈', '🍕', '🌮', '🏎️',
 ];
+// Voice styles: [id, label, pitch, speed multiplier]. Pitch is ignored by some voices.
+const VOICE_STYLES = [
+  ['happy', '😄 Happy', 1.35, 1.05],
+  ['normal', '🙂 Normal', 1, 1],
+  ['squeaky', '🐭 Squeaky', 1.9, 1.1],
+  ['deep', '🐻 Deep', 0.6, 0.95],
+  ['slow', '🐢 Slow', 1.1, 0.8],
+];
 const CHEERS = ['Nice!', 'Great job!', 'You got it!', 'Awesome!', 'Nailed it!', 'Super speller!', 'Way to go!'];
 
 // ---------- storage ----------
@@ -85,12 +93,30 @@ function loadVoices() {
   if (!('speechSynthesis' in window)) return;
   voices = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
   if (!$('#screen-parent').hidden) renderVoiceSelect();
+  if (!$('#screen-setup').hidden) renderPlayerVoice();
 }
 
-function bestVoice() {
-  const chosen = voices.find((v) => v.voiceURI === db.settings.voiceURI);
+// Higher is better: neural/"natural" voices sound far less flat than the old ones.
+function voiceRank(v) {
+  if (/natural|neural|premium/i.test(v.name)) return 3;
+  if (/enhanced|google/i.test(v.name)) return 2;
+  return /en[-_]us/i.test(v.lang) ? 1 : 0;
+}
+
+function sortedVoices() {
+  return [...voices].sort((a, b) => voiceRank(b) - voiceRank(a) || a.name.localeCompare(b.name));
+}
+
+function voiceLabel(v) {
+  return `${voiceRank(v) === 3 ? '★ ' : ''}${v.name} (${v.lang})`;
+}
+
+// The player's own voice wins, then the family default from Settings, then the best one available.
+function bestVoice(uri) {
+  const chosen = (uri && voices.find((v) => v.voiceURI === uri))
+    || voices.find((v) => v.voiceURI === db.settings.voiceURI);
   if (chosen) return chosen;
-  const prefs = [/natural/i, /samantha/i, /google us english/i, /aria|jenny/i];
+  const prefs = [/natural/i, /premium|enhanced/i, /samantha/i, /google us english/i, /aria|jenny/i];
   for (const p of prefs) {
     const v = voices.find((x) => p.test(x.name) && /en[-_]us/i.test(x.lang));
     if (v) return v;
@@ -98,15 +124,22 @@ function bestVoice() {
   return voices.find((v) => /en[-_]us/i.test(v.lang)) || voices[0] || null;
 }
 
-function say(text) {
+function voiceStyle(id) {
+  return VOICE_STYLES.find(([k]) => k === id) || VOICE_STYLES[0];
+}
+
+// who: a player (uses their voice and style), or null for the family default.
+function say(text, who = current()) {
   if (!('speechSynthesis' in window) || !text) return;
   const busy = speechSynthesis.speaking || speechSynthesis.pending;
   speechSynthesis.cancel();
   speechSynthesis.resume(); // Safari can get stuck paused (e.g. after the tab was in the background)
   const u = new SpeechSynthesisUtterance(text);
-  const v = bestVoice();
+  const v = bestVoice(who?.voiceURI);
   if (v) { u.voice = v; u.lang = v.lang; }
-  u.rate = db.settings.rate;
+  const [, , pitch, speed] = voiceStyle(who ? who.voiceStyle : 'normal');
+  u.pitch = pitch;
+  u.rate = Math.min(2, db.settings.rate * speed);
   say.last = u; // Chrome can garbage-collect an utterance mid-sentence without a reference
   // Chrome sometimes drops a speak() that comes right after cancel(), so wait a moment.
   if (busy) setTimeout(() => speechSynthesis.speak(u), 80);
@@ -148,7 +181,7 @@ const current = () => db.profiles.find((p) => p.id === currentId);
 function newProfile(name, avatar, grade) {
   return {
     id: uid(), name, avatar, grade,
-    difficulty: 'easy', source: 'grade',
+    difficulty: 'easy', source: 'grade', voiceStyle: 'happy', voiceURI: '',
     history: [], words: {}, stars: 0,
     day: { last: '', count: 0 },
   };
@@ -280,6 +313,7 @@ function renderSetup() {
   document.querySelectorAll('#diffSeg button').forEach((b) => b.classList.toggle('active', b.dataset.diff === p.difficulty));
   $('#diffNote').textContent = DIFF_NOTES[p.difficulty];
   document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === (p.inputMode || 'type')));
+  renderPlayerVoice();
 
   const missed = missedWords(p).length;
   const opts = [['grade', 'Grade words']];
@@ -315,6 +349,36 @@ $('#modeSeg').addEventListener('click', (e) => {
   saveDb();
   renderSetup();
 });
+
+function renderPlayerVoice() {
+  const p = current();
+  if (!p) return;
+  const style = voiceStyle(p.voiceStyle)[0];
+  $('#styleSeg').innerHTML = VOICE_STYLES.map(([k, label]) =>
+    `<button data-style="${k}"${k === style ? ' class="active"' : ''}>${label}</button>`).join('');
+  const uri = voices.some((v) => v.voiceURI === p.voiceURI) ? p.voiceURI : '';
+  $('#playerVoiceSelect').innerHTML = `<option value="">Family voice</option>` + sortedVoices().map((v) =>
+    `<option value="${esc(v.voiceURI)}"${v.voiceURI === uri ? ' selected' : ''}>${esc(voiceLabel(v))}</option>`).join('');
+}
+
+const VOICE_SAMPLE = 'Hi! Can you spell happy? I am so happy to see you.';
+
+$('#styleSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  current().voiceStyle = b.dataset.style;
+  saveDb();
+  renderPlayerVoice();
+  say(VOICE_SAMPLE);
+});
+
+$('#playerVoiceSelect').addEventListener('change', (e) => {
+  current().voiceURI = e.target.value;
+  saveDb();
+  say(VOICE_SAMPLE);
+});
+
+$('#hearVoiceBtn').addEventListener('click', () => say(VOICE_SAMPLE));
 
 $('#sourceSelect').addEventListener('change', (e) => {
   current().source = e.target.value;
@@ -1102,7 +1166,7 @@ $('#tab-players').addEventListener('click', (e) => {
 function renderVoiceSelect() {
   const chosen = bestVoice();
   $('#voiceSelect').innerHTML = voices.length
-    ? voices.map((v) => `<option value="${esc(v.voiceURI)}"${v === chosen ? ' selected' : ''}>${esc(v.name)} (${v.lang})</option>`).join('')
+    ? sortedVoices().map((v) => `<option value="${esc(v.voiceURI)}"${v === chosen ? ' selected' : ''}>${esc(voiceLabel(v))}</option>`).join('')
     : '<option>No English voices found</option>';
 }
 
@@ -1119,7 +1183,7 @@ $('#rateInput').addEventListener('input', (e) => {
   $('#rateOut').textContent = `${db.settings.rate}×`;
   saveDb();
 });
-$('#testVoiceBtn').addEventListener('click', () => say('Can you spell beautiful? The sunset was beautiful.'));
+$('#testVoiceBtn').addEventListener('click', () => say('Can you spell beautiful? The sunset was beautiful.', null));
 
 $('#savePinBtn').addEventListener('click', () => {
   const pin = $('#pinInput').value.trim();

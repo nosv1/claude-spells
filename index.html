@@ -49,6 +49,14 @@
         </div>
       </div>
       <label class="field"><span>Words</span><select id="sourceSelect"></select></label>
+      <div class="field">
+        <span>Voice</span>
+        <div id="styleSeg" class="seg seg-wrap"></div>
+        <div class="voice-row">
+          <select id="playerVoiceSelect" aria-label="Voice"></select>
+          <button id="hearVoiceBtn" class="btn btn-ghost" aria-label="Hear the voice">🔊</button>
+        </div>
+      </div>
       <button id="startBtn" class="btn btn-primary btn-big">Start ▶</button>
     </div>
     <div class="card">
@@ -154,6 +162,7 @@
     <div id="tab-settings" class="tab-panel" hidden>
       <div class="card">
         <h2>Voice</h2>
+        <p class="note">The family voice. Each player can pick their own voice and style on their start screen. ★ voices sound the most natural.</p>
         <label class="field"><span>Voice</span><select id="voiceSelect"></select></label>
         <label class="field"><span>Speed <output id="rateOut"></output></span><input id="rateInput" type="range" min="0.5" max="1.2" step="0.05"></label>
         <button id="testVoiceBtn" class="btn btn-ghost">🔊 Test voice</button>
