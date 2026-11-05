@@ -2,6 +2,15 @@
 
 Ideas parked for later, roughly in order of how much fun they'd add.
 
+- **Drawing break** (Hailee's idea, 2026-11-04; "not sure yet"). Halfway through a quiz, a
+  3-minute free-draw pad with a countdown and a few colors, then back to the next word. Open
+  questions: every quiz or a per-player switch? Keep the drawings (a gallery) or throw them away?
+  A "Back to spelling" button to leave early.
+- **Progress to parents' phones** (2026-11-04). A short summary when a quiz or a session ends
+  ("Hailee: 9/10, missed *because*, 3-day streak"). Needs the Cloudflare sync first. Options:
+  web push from the Worker (parent adds SpellIt! to their home screen and allows notifications;
+  free, no accounts) or email via Cloudflare Email Routing (needs a domain on Cloudflare).
+
 - **Treats / reward shop.** Parent sets rewards ("ice cream = 30 stars") and kids spend the stars
   they earn. A parent approves each one. This needs a "spent stars" field next to `stars`.
 - **Most improved.** A weekly badge for the player whose score went up most vs. last week. Parent

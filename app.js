@@ -85,6 +85,17 @@ function show(name) {
   if (name === 'parent') renderParent();
 }
 
+// ---------- hold the screen still on touch screens ----------
+// iPad Safari ignores user-scalable=no, so pinches are stopped here. On the quiz screen a stray
+// finger drag shouldn't slide the page around either, unless the page really is taller than the
+// screen (small phone, keyboard up), when it still has to scroll.
+const quizShown = () => !$('#screen-quiz').hidden;
+document.addEventListener('gesturestart', (e) => e.preventDefault()); // Safari's pinch event
+document.addEventListener('touchmove', (e) => {
+  const fits = document.documentElement.scrollHeight <= window.innerHeight + 1;
+  if (e.touches.length > 1 || (quizShown() && fits)) e.preventDefault();
+}, { passive: false });
+
 // ---------- speech ----------
 
 let voices = [];
@@ -571,6 +582,7 @@ function finishWord(correct) {
     if (!writing()) renderTiles(typedValue());
     setFeedback(perfect ? `⭐ Perfect! ${pick(CHEERS)}` : pick(CHEERS), 'good');
     chime(true);
+    confetti(perfect ? 40 : 24);
   } else {
     if (writing()) {
       revealWriting();
@@ -957,11 +969,14 @@ function showResults() {
   else if (stars > 0) chime(true);
 }
 
-function confetti() {
+// A small burst (24–40 pieces) for each right word, the full shower (90) for a perfect quiz.
+function confetti(pieces = 90) {
   const box = $('#confetti');
   const colors = ['#6c4cf5', '#ff9f1c', '#1fb36b', '#e5484d', '#2bb3ff', '#ffd23f'];
-  box.innerHTML = Array.from({ length: 90 }, () => `<i style="left:${Math.random() * 100}%;background:${pick(colors)};animation-duration:${2 + Math.random() * 2}s;animation-delay:${Math.random() * 0.6}s"></i>`).join('');
-  setTimeout(() => { box.innerHTML = ''; }, 4800);
+  const fall = pieces >= 90 ? 2 : 1.4; // a burst falls faster so it's gone before the next word
+  box.innerHTML = Array.from({ length: pieces }, () => `<i style="left:${Math.random() * 100}%;background:${pick(colors)};animation-duration:${fall + Math.random() * fall}s;animation-delay:${Math.random() * 0.4}s"></i>`).join('');
+  clearTimeout(confetti.timer); // a fresh burst must not be wiped by the last one's timer
+  confetti.timer = setTimeout(() => { box.innerHTML = ''; }, (fall * 2 + 0.6) * 1000);
 }
 
 // ---------- parent mode ----------

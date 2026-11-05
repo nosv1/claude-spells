@@ -45,6 +45,7 @@
     // Word 2: perfect.
     type(quiz.word.target);
     check('perfect word', quiz.results[1].perfect);
+    check('right word bursts confetti', $('#confetti').children.length === 40);
     next();
 
     // Word 3: hint, then finish.
