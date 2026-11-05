@@ -17,9 +17,45 @@ const DIFF_NOTES = {
   hard: 'The toughest words for this grade.',
 };
 const AVATARS = [
+  // people first: they're the most picked
+  '👧', '👦', '🧒', '👩', '👨', '🧑', '👱‍♀️', '👱', '👩‍🦰', '👨‍🦰', '👩‍🦱', '👨‍🦱',
+  '👸', '🤴', '🧚', '🧜‍♀️', '🧝‍♀️', '🦸‍♀️', '🧙‍♀️', '🥷', '👩‍🚀', '🧑‍🚀', '👩‍🎤', '🧑‍🎤',
+  '👩‍🎨', '👩‍🔬', '👩‍🍳', '👩‍🚒', '🕵️‍♀️', '👷‍♀️', '💃', '🕺', '🤸‍♀️', '🏄‍♀️', '🧗‍♀️', '⛹️‍♀️',
   '🦊', '🐼', '🦖', '🐙', '🦄', '🐸', '🚀', '🐯', '🐵', '🦉', '🐢', '⚡',
   '🐶', '🐱', '🐰', '🐨', '🦁', '🐧', '🐬', '🦈', '🐝', '🦋', '🐲', '🦕',
   '🤖', '👾', '🦸', '🧙', '⚽', '🏀', '🎸', '🎨', '🌈', '🍕', '🌮', '🏎️',
+];
+// Button icons: simple line drawings in the button's own color (24×24, stroked).
+const ICONS = {
+  speaker: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
+  bubble: '<path d="M4 5h16v11H11l-5 4v-4H4z"/><path d="M8 10.5h8"/>',
+  pencil: '<path d="M15 4.5l4.5 4.5L9 19.5H4.5V15z"/><path d="M12.5 7l4.5 4.5"/>',
+  book: '<path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z"/><path d="M12 6.5v13"/>',
+  eraser: '<path d="M4.6 14.6l9-9a2 2 0 0 1 2.8 0l3 3a2 2 0 0 1 0 2.8L12 18.8H8.8z"/><path d="M9.5 9.7l5.2 5.2M12 19h8"/>',
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  bulb: '<path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/>',
+  write: '<path d="M3 15c1.6-6 3.4-6 4.6 0s3.2 6 4.6 0 3.2-6 4.6 0 2.4 4 4.2 1"/>',
+};
+// The shop: [id, name, stars to unlock, color]. A player's total stars unlock things (stars are
+// never spent), so an unlocked theme or pen stays theirs. Theme colors live in style.css.
+const THEMES = [
+  ['classic', 'Classic', 0, '#6c4cf5'],
+  ['ocean', 'Ocean', 10, '#0e8fb8'],
+  ['jungle', 'Jungle', 25, '#2f9e44'],
+  ['candy', 'Candy', 45, '#e64980'],
+  ['sunset', 'Sunset', 70, '#f76707'],
+  ['space', 'Space', 100, '#1d1550'],
+];
+const PENS = [
+  ['ink', 'Ink', 0, '#23204a'],
+  ['grape', 'Grape', 5, '#7048e8'],
+  ['sky', 'Sky blue', 15, '#1c7ed6'],
+  ['leaf', 'Leaf green', 30, '#2b8a3e'],
+  ['berry', 'Berry pink', 50, '#d6336c'],
+  ['tangerine', 'Tangerine', 75, '#f76707'],
+  ['rainbow', 'Rainbow', 110, null], // changes color along the stroke
 ];
 // Voice styles: [id, label, pitch, speed multiplier]. Pitch is ignored by some voices.
 const VOICE_STYLES = [
@@ -80,12 +116,24 @@ function shortDate(ts) {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+// A player's screens wear their theme; home and Parent mode stay Classic.
+const PLAYER_SCREENS = ['setup', 'quiz', 'results', 'shop'];
+
+function applyTheme(name) {
+  const p = PLAYER_SCREENS.includes(name) ? current() : null;
+  const theme = shopItem(THEMES, p?.theme);
+  document.documentElement.dataset.theme = theme[0];
+  document.querySelector('meta[name="theme-color"]').content = theme[3];
+}
+
 function show(name) {
   document.querySelectorAll('.screen').forEach((s) => { s.hidden = s.id !== `screen-${name}`; });
+  applyTheme(name);
   window.scrollTo(0, 0);
   if (name === 'home') renderHome();
   if (name === 'setup') renderSetup();
   if (name === 'parent') renderParent();
+  if (name === 'shop') renderShop();
 }
 
 // ---------- hold the screen still on touch screens ----------
@@ -195,7 +243,7 @@ const current = () => db.profiles.find((p) => p.id === currentId);
 function newProfile(name, avatar, grade) {
   return {
     id: uid(), name, avatar, grade,
-    difficulty: 'easy', source: 'grade', voiceStyle: 'happy', voiceURI: '',
+    difficulty: 'easy', source: 'grade', voiceStyle: 'happy', voiceURI: '', theme: 'classic', pen: 'ink',
     history: [], words: {}, stars: 0,
     day: { last: '', count: 0 },
   };
@@ -322,7 +370,8 @@ function renderSetup() {
         <span class="badge">🔥 ${streak} day${streak === 1 ? '' : 's'}</span>
         <span class="badge">⭐ ${p.stars} stars</span>
       </div>
-    </div>`;
+    </div>
+    <button class="btn btn-ghost shop-btn" data-go="shop">Shop</button>`;
   $('#gradeSelect').innerHTML = gradeOptions(p.grade);
   document.querySelectorAll('#diffSeg button').forEach((b) => b.classList.toggle('active', b.dataset.diff === p.difficulty));
   $('#diffNote').textContent = DIFF_NOTES[p.difficulty];
@@ -490,7 +539,7 @@ function renderStreak() {
 }
 
 function renderHint() {
-  $('#hintBtn').textContent = `💡 Hint (${quiz.hintsLeft})`;
+  $('#hintLabel').textContent = `Hint (${quiz.hintsLeft})`;
   $('#hintBtn').disabled = quiz.hintsLeft <= 0;
 }
 
@@ -698,9 +747,22 @@ function drawStrokes(canvas, strokes, ghost) {
   }
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#23204a';
   ctx.lineWidth = cw * 0.05;
+  const [, , , color] = shopItem(PENS, quiz?.p?.pen);
+  ctx.strokeStyle = color || '#23204a';
+  let hue = 0;
   for (const s of strokes) {
+    if (!color) { // rainbow: each little segment a step further round the color wheel
+      const pts = s.length === 1 ? [s[0], [s[0][0] + 0.5 / cw, s[0][1]]] : s; // a dot is one tiny segment
+      for (let i = 1; i < pts.length; i++, hue = (hue + 9) % 360) {
+        ctx.strokeStyle = `hsl(${hue} 85% 52%)`;
+        ctx.beginPath();
+        ctx.moveTo(pts[i - 1][0] * cw, pts[i - 1][1] * ch);
+        ctx.lineTo(pts[i][0] * cw, pts[i][1] * ch);
+        ctx.stroke();
+      }
+      continue;
+    }
     ctx.beginPath();
     s.forEach(([x, y], i) => (i ? ctx.lineTo(x * cw, y * ch) : ctx.moveTo(x * cw, y * ch)));
     if (s.length === 1) ctx.lineTo(s[0][0] * cw + 0.5, s[0][1] * ch); // a dot, like on an i
@@ -896,7 +958,7 @@ $('#meaningBtn').addEventListener('click', async () => {
     return;
   }
   const shown = blankOut(def, it.w, '_____');
-  box.textContent = `📖 ${shown}`;
+  box.textContent = shown;
   say(`It means: ${blankOut(def, it.w, 'blank')}`);
 });
 
@@ -937,19 +999,23 @@ function saveQuizResult() {
   const prevBest = same.length ? Math.max(...same.map((h) => h.correct / h.total)) : null;
 
   bumpDayStreak(p);
+  const before = p.stars;
   p.stars += stars;
+  const unlocks = [...THEMES.map((t) => [t, 'theme']), ...PENS.map((t) => [t, 'pen'])]
+    .filter(([[, , cost]]) => cost > before && cost <= p.stars)
+    .map(([[, name], kind]) => `${name} ${kind}`);
   p.history.push({
     t: Date.now(), source: p.source, grade: p.grade, difficulty: p.difficulty, mode: quiz.mode,
     correct, total, perfect: quiz.results.filter((r) => r.perfect).length,
     hintsUsed: HINTS_PER_QUIZ - quiz.hintsLeft, bestStreak: quiz.bestStreak, stars,
   });
   saveDb();
-  quiz.summary = { correct, total, stars, newBest: prevBest !== null && correct / total > prevBest };
+  quiz.summary = { correct, total, stars, unlocks, newBest: prevBest !== null && correct / total > prevBest };
 }
 
 function showResults() {
   const p = quiz.p;
-  const { correct, total, stars, newBest } = quiz.summary;
+  const { correct, total, stars, newBest, unlocks = [] } = quiz.summary;
   const perfect = quiz.results.filter((r) => r.perfect).length;
   const missed = quiz.results.filter((r) => !r.correct);
 
@@ -966,6 +1032,11 @@ function showResults() {
   $('#resultMissed').innerHTML = missed.length
     ? `<p class="note">Words to practice:</p><div class="chips">${missed.map((r) => `<span class="chip">${esc(r.w)}</span>`).join('')}</div>`
     : '';
+  $('#resultUnlocks').hidden = !unlocks.length;
+  $('#resultUnlocks').innerHTML = unlocks.length
+    ? `<b>New in the shop:</b> ${unlocks.map(esc).join(', ')}
+       <button class="btn btn-primary" data-go="shop">Go to the shop</button>`
+    : '';
 
   show('results');
   if (stars === 3) confetti();
@@ -981,6 +1052,55 @@ function confetti(pieces = 90) {
   clearTimeout(confetti.timer); // a fresh burst must not be wiped by the last one's timer
   confetti.timer = setTimeout(() => { box.innerHTML = ''; }, (fall * 2 + 0.6) * 1000);
 }
+
+// ---------- shop ----------
+
+// The item with this id, or the free first one (old profiles have no theme or pen yet).
+const shopItem = (list, id) => list.find(([k]) => k === id) || list[0];
+
+const LOCK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>';
+
+function penSwatch(id, color) {
+  const stroke = color || `url(#rb-${id})`;
+  return `<svg class="pen-swatch" viewBox="0 0 100 50" aria-hidden="true">
+    ${color ? '' : `<defs><linearGradient id="rb-${id}"><stop offset="0" stop-color="#ff3b3b"/><stop offset=".25" stop-color="#ffb000"/><stop offset=".5" stop-color="#22c55e"/><stop offset=".75" stop-color="#3b82f6"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>`}
+    <path d="M8 34 C 22 6, 34 6, 40 26 S 60 46, 70 22 S 88 10, 92 20" fill="none" stroke="${stroke}" stroke-width="7" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function shopTile(kind, [id, name, cost, color], p) {
+  const using = (kind === 'theme' ? p.theme || 'classic' : p.pen || 'ink') === id;
+  const locked = p.stars < cost;
+  const preview = kind === 'theme'
+    ? `<span class="theme-preview" data-theme="${id}"><i class="pv-card"><i class="pv-line"></i><i class="pv-line short"></i><i class="pv-btn"></i></i></span>`
+    : penSwatch(id, color);
+  const status = using ? 'Using'
+    : locked ? `${LOCK_SVG}<span>${cost - p.stars} more ★</span>`
+    : 'Tap to use';
+  const meter = locked ? `<span class="meter"><i style="width:${Math.round((p.stars / cost) * 100)}%"></i></span>` : '';
+  return `<button class="shop-item${locked ? ' locked' : ''}${using ? ' using' : ''}" data-kind="${kind}" data-id="${id}"${locked ? ' aria-disabled="true"' : ''}>
+    ${preview}<b>${esc(name)}</b><span class="status">${status}</span>${meter}
+  </button>`;
+}
+
+function renderShop() {
+  const p = current();
+  if (!p) return show('home');
+  $('#shopStars').textContent = p.stars;
+  $('#themeGrid').innerHTML = THEMES.map((t) => shopTile('theme', t, p)).join('');
+  $('#penGrid').innerHTML = PENS.map((t) => shopTile('pen', t, p)).join('');
+}
+
+$('#screen-shop').addEventListener('click', (e) => {
+  const b = e.target.closest('.shop-item');
+  if (!b || b.classList.contains('locked')) return;
+  const p = current();
+  p[b.dataset.kind] = b.dataset.id;
+  saveDb();
+  applyTheme('shop');
+  renderShop();
+  chime(true);
+});
 
 // ---------- parent mode ----------
 
@@ -1244,6 +1364,10 @@ $('#importInput').addEventListener('change', async (e) => {
 });
 
 // ---------- nav + boot ----------
+
+document.querySelectorAll('i.ic[data-icon]').forEach((el) => {
+  el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[el.dataset.icon]}</svg>`;
+});
 
 document.addEventListener('click', (e) => {
   const go = e.target.closest('[data-go]');

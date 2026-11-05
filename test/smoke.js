@@ -87,6 +87,25 @@
     check('day streak 1', dayStreak(db.profiles[0]) === 1);
     check('missed word cleared after review', missedWords(db.profiles[0]).length === 0);
 
+    // Shop.
+    const sp = db.profiles[0];
+    show('shop');
+    check('shop lists themes and pens', $('#themeGrid').children.length === THEMES.length && $('#penGrid').children.length === PENS.length);
+    $('#themeGrid [data-id="ocean"]').click();
+    check('locked theme cannot be picked', sp.theme === 'classic' && $('#themeGrid [data-id="ocean"]').classList.contains('locked'));
+    const starsWere = sp.stars;
+    sp.stars = 12;
+    renderShop();
+    $('#themeGrid [data-id="ocean"]').click();
+    check('unlocked theme picked and worn', sp.theme === 'ocean' && document.documentElement.dataset.theme === 'ocean');
+    $('#penGrid [data-id="grape"]').click();
+    check('unlocked pen picked', sp.pen === 'grape' && $('#penGrid .using').dataset.id === 'grape');
+    show('home');
+    check('home stays classic', document.documentElement.dataset.theme === 'classic');
+    show('setup');
+    check('setup wears the theme', document.documentElement.dataset.theme === 'ocean');
+    Object.assign(sp, { stars: starsWere, theme: 'classic', pen: 'ink' });
+
     // Custom list.
     show('parent');
     activeTab = 'lists';
@@ -128,7 +147,7 @@
       loadWord();
       $('#meaningBtn').click();
       await new Promise((r) => setTimeout(r, 50));
-      check('meaning shown with word blanked', $('#meaningText').textContent === '📖 A _____ is a made-up word.');
+      check('meaning shown with word blanked', $('#meaningText').textContent === 'A _____ is a made-up word.');
 
       // Handwriting mode: draw on the pad, the strip keeps one box per letter.
       const draw = () => {

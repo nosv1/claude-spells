@@ -46,8 +46,8 @@
       <div class="field">
         <span>Answer by</span>
         <div id="modeSeg" class="seg">
-          <button data-mode="type">⌨️ Typing</button>
-          <button data-mode="write">✍️ Handwriting</button>
+          <button data-mode="type"><i class="ic" data-icon="keyboard"></i> Typing</button>
+          <button data-mode="write"><i class="ic" data-icon="write"></i> Handwriting</button>
         </div>
       </div>
       <label class="field"><span>Words</span><select id="sourceSelect"></select></label>
@@ -56,7 +56,7 @@
         <div id="styleSeg" class="seg seg-wrap"></div>
         <div class="voice-row">
           <select id="playerVoiceSelect" aria-label="Voice"></select>
-          <button id="hearVoiceBtn" class="btn btn-ghost" aria-label="Hear the voice">🔊</button>
+          <button id="hearVoiceBtn" class="btn btn-ghost" aria-label="Hear the voice"><i class="ic" data-icon="speaker"></i></button>
         </div>
       </div>
       <button id="startBtn" class="btn btn-primary btn-big">Start ▶</button>
@@ -64,6 +64,25 @@
     <div class="card">
       <h2>Recent quizzes</h2>
       <ul id="recentList" class="recent"></ul>
+    </div>
+  </section>
+
+  <!-- Shop: themes and pens, unlocked by a player's total stars -->
+  <section id="screen-shop" class="screen" hidden>
+    <button class="back" data-go="setup">← Back</button>
+    <div class="card shop-head">
+      <h1>Shop</h1>
+      <p class="shop-stars"><span class="star">★</span> <b id="shopStars"></b> stars</p>
+      <p class="note">Every quiz earns stars, and stars unlock new themes and pens. Once one's unlocked it's yours, so switch any time.</p>
+    </div>
+    <div class="card">
+      <h2>Themes</h2>
+      <div id="themeGrid" class="shop-grid"></div>
+    </div>
+    <div class="card">
+      <h2>Pens</h2>
+      <p class="note">For handwriting.</p>
+      <div id="penGrid" class="shop-grid"></div>
     </div>
   </section>
 
@@ -81,10 +100,10 @@
     </div>
     <div class="card quiz-card">
       <div class="listen-row">
-        <button id="sayWordBtn" class="btn listen"><b>🔊</b><span>Word</span></button>
-        <button id="saySentenceBtn" class="btn listen"><b>💬</b><span>Sentence</span></button>
-        <button id="blankBtn" class="btn listen"><b>✏️</b><span>Fill the blank</span></button>
-        <button id="meaningBtn" class="btn listen"><b>📖</b><span>Meaning</span></button>
+        <button id="sayWordBtn" class="btn listen"><i class="ic" data-icon="speaker"></i><span>Word</span></button>
+        <button id="saySentenceBtn" class="btn listen"><i class="ic" data-icon="bubble"></i><span>Sentence</span></button>
+        <button id="blankBtn" class="btn listen"><i class="ic" data-icon="pencil"></i><span>Fill the blank</span></button>
+        <button id="meaningBtn" class="btn listen"><i class="ic" data-icon="book"></i><span>Meaning</span></button>
       </div>
       <p id="blankText" class="blank-text" hidden></p>
       <p id="meaningText" class="blank-text meaning-text" hidden></p>
@@ -100,15 +119,16 @@
           <canvas id="pad" class="ruled" aria-label="Write the letter here"></canvas>
         </div>
         <div class="action-row write-tools">
-          <button id="undoBtn" class="btn btn-ghost">↶ Undo</button>
-          <button id="clearBtn" class="btn btn-ghost">🧽 Clear</button>
+          <button id="undoBtn" class="btn btn-ghost"><i class="ic" data-icon="undo"></i> Undo</button>
+          <button id="clearBtn" class="btn btn-ghost"><i class="ic" data-icon="eraser"></i> Clear</button>
           <button id="nextLetterBtn" class="btn btn-ghost">Next →</button>
         </div>
       </div>
       <p id="feedback" class="feedback" aria-live="polite"></p>
       <div class="action-row">
-        <button id="hintBtn" class="btn btn-ghost">💡 Hint</button>
-        <button id="giveUpBtn" class="btn btn-ghost">🙈 Show me</button>        <button id="markRightBtn" class="btn btn-primary" hidden>✓ I got it</button>
+        <button id="hintBtn" class="btn btn-ghost"><i class="ic" data-icon="bulb"></i> <span id="hintLabel">Hint</span></button>
+        <button id="giveUpBtn" class="btn btn-ghost"><i class="ic" data-icon="eye"></i> Show me</button>
+        <button id="markRightBtn" class="btn btn-primary" hidden>✓ I got it</button>
         <button id="markWrongBtn" class="btn btn-ghost" hidden>✗ Not quite</button>
         <button id="nextBtn" class="btn btn-primary" hidden>Next →</button>
       </div>
@@ -122,6 +142,7 @@
       <h2 id="resultTitle"></h2>
       <ul id="resultStats" class="result-stats"></ul>
       <div id="resultMissed"></div>
+      <div id="resultUnlocks" class="banner unlock-news" hidden></div>
       <div class="action-row">
         <button id="againBtn" class="btn btn-primary btn-big">Play again</button>
         <button class="btn btn-ghost" data-go="setup">Change words</button>
@@ -145,7 +166,7 @@
     <div id="tab-lists" class="tab-panel" hidden>
       <div class="card">
         <h2 id="listEditorTitle">New word list</h2>
-        <p class="note">Great for this week's spelling list from school. One word per line: <b>word | sentence | meaning</b>. The sentence and meaning are optional. Words without a meaning are looked up online when the 📖 button is pressed.</p>
+        <p class="note">Great for this week's spelling list from school. One word per line: <b>word | sentence | meaning</b>. The sentence and meaning are optional. Words without a meaning are looked up online when the Meaning button is pressed.</p>
         <label class="field"><span>List name</span><input id="listName" type="text" placeholder="Week 9 spelling list"></label>
         <label class="field"><span>Words</span>
           <textarea id="listWords" rows="8" spellcheck="false" placeholder="friend | My friend sat next to me at lunch. | Someone you like and have fun with.&#10;because | I wore a coat because it was cold.&#10;laugh"></textarea>
@@ -167,7 +188,7 @@
         <p class="note">The family voice. Each player can pick their own voice and style on their start screen. ★ voices sound the most natural.</p>
         <label class="field"><span>Voice</span><select id="voiceSelect"></select></label>
         <label class="field"><span>Speed <output id="rateOut"></output></span><input id="rateInput" type="range" min="0.5" max="1.2" step="0.05"></label>
-        <button id="testVoiceBtn" class="btn btn-ghost">🔊 Test voice</button>
+        <button id="testVoiceBtn" class="btn btn-ghost"><i class="ic" data-icon="speaker"></i> Test voice</button>
       </div>
       <div class="card">
         <h2>Parent PIN</h2>
