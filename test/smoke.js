@@ -263,6 +263,75 @@
       check('easy: check on after writing', !$('#nextLetterBtn').disabled);
       $('#nextLetterBtn').click();
       check('easy: check button checks', W().checked);
+
+      // Family sync, against a stand-in for the Worker (same rules: PIN, newest wins, cursor).
+      const fake = { pin: '2468', seq: 0, rows: new Map() };
+      const put = (c) => {
+        const k = `${c.kind}:${c.id}`;
+        const cur = fake.rows.get(k);
+        if (cur && !(c.updated > cur.updated)) return false;
+        fake.rows.set(k, { ...c, data: c.deleted ? null : c.data, deleted: !!c.deleted, seq: ++fake.seq });
+        return true;
+      };
+      window.fetch = async (url, opts) => {
+        const body = JSON.parse(opts.body);
+        if (opts.headers['X-Family-Pin'] !== fake.pin) return { ok: false, status: 401, json: async () => ({}) };
+        const lost = body.changes.filter((c) => !put(c));
+        const page = [...fake.rows.values()].filter((r) => r.seq > body.since).sort((a, b) => a.seq - b.seq);
+        const winners = lost.map((c) => fake.rows.get(`${c.kind}:${c.id}`)).filter((r) => !page.includes(r));
+        return { ok: true, status: 200, json: async () => ({ cursor: page.length ? page[page.length - 1].seq : body.since, more: false, records: [...page, ...winners] }) };
+      };
+      const otherDevice = (prof, updated) => put({ kind: 'profile', id: prof.id, data: JSON.stringify(prof), updated });
+      const onServer = (id) => JSON.parse(fake.rows.get(`profile:${id}`).data);
+
+      db = freshDb();
+      syncDisconnect();
+      const fam = newProfile('Hailee', '👧', '2');
+      fam.history = [1, 2, 3].map((t) => ({ t, correct: 9, total: 10, stars: 3 }));
+      otherDevice(fam, 1000);
+      const twin = newProfile('hailee', '🦄', '2');
+      twin.history = [{ t: 50, correct: 5, total: 10, stars: 1 }];
+      const liam = newProfile('Liam', '🦖', '6');
+      db.profiles.push(twin, liam);
+      let pinErr = '';
+      try { await syncConnect('0000'); } catch (e) { pinErr = e.message; }
+      check('wrong family PIN refused', /not right/.test(pinErr) && !syncState.pin);
+      await syncConnect('2468');
+      check('join: family player comes in, same-name twin folded in', db.profiles.length === 2
+        && db.profiles.some((x) => x.id === fam.id && x.history.length === 3) && !db.profiles.some((x) => x.id === twin.id));
+      check("join: this device's own player goes up", fake.rows.has(`profile:${liam.id}`));
+      const hp = db.profiles.find((x) => x.id === fam.id);
+      hp.stars += 3;
+      hp.history.push({ t: 100, correct: 10, total: 10, stars: 3 });
+      saveDb();
+      await syncNow();
+      check('a change here reaches the family', onServer(fam.id).history.length === 4);
+      const s1 = onServer(fam.id);
+      otherDevice({ ...s1, history: [...s1.history, { t: 200, correct: 8, total: 10, stars: 2 }], stars: s1.stars + 2 }, Date.now() + 1000);
+      await syncNow();
+      check('a change elsewhere arrives, in the same object', db.profiles.find((x) => x.id === fam.id) === hp && hp.history.length === 5);
+      // A quiz here and one elsewhere before they synced, the other one newer: neither is lost.
+      hp.history.push({ t: 300, correct: 6, total: 10, stars: 1 });
+      hp.stars += 1;
+      saveDb();
+      const s2 = onServer(fam.id);
+      otherDevice({ ...s2, history: [...s2.history, { t: 310, correct: 8, total: 10, stars: 2 }], stars: s2.stars + 2 }, Date.now() + 5000);
+      await syncNow();
+      await syncNow();
+      const s3 = onServer(fam.id);
+      check('both quizzes kept, here and there', hp.history.some((x) => x.t === 300) && hp.history.some((x) => x.t === 310)
+        && s3.history.length === 7 && s3.stars === hp.stars && hp.stars === s1.stars + 2 + 1 + 2);
+      put({ kind: 'profile', id: liam.id, data: null, deleted: true, updated: Date.now() + 9000 });
+      await syncNow();
+      check('deleted elsewhere, gone here', !db.profiles.some((x) => x.id === liam.id));
+      show('parent');
+      activeTab = 'settings';
+      renderParent();
+      check('settings show sync on', !$('#syncOn').hidden && $('#syncStatus').textContent.startsWith('On.'));
+      syncDisconnect();
+      renderParent();
+      check('turned off: players stay', !syncState.pin && db.profiles.length === 1 && !$('#syncOff').hidden);
+      localStorage.removeItem(SYNC_KEY);
     } catch (e) {
       out.push(`FAIL exception: ${e.message}\n${e.stack}`);
     }

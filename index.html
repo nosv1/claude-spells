@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Dancing+Script:wght@700&family=Pacifico&family=Bangers&family=Satisfy&family=Orbitron:wght@800&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.11.04.2">
+  <link rel="stylesheet" href="style.css?v=2026.11.04.3">
 </head>
 <body>
 <main id="app">
@@ -207,8 +207,24 @@
         <p id="pinMsg" class="note"></p>
       </div>
       <div class="card">
+        <h2>Family sync</h2>
+        <p class="note">Keeps players, stars and word lists the same on every device. Enter the family PIN once on each device. Voice and the Parent PIN stay per device.</p>
+        <div id="syncOff">
+          <label class="field"><span>Family PIN</span><input id="syncPin" type="password" inputmode="numeric" maxlength="12" autocomplete="off"></label>
+          <button id="syncConnectBtn" class="btn btn-primary">Connect this device</button>
+        </div>
+        <div id="syncOn" hidden>
+          <p id="syncStatus"></p>
+          <div class="action-row">
+            <button id="syncNowBtn" class="btn btn-ghost">Sync now</button>
+            <button id="syncOffBtn" class="btn btn-ghost">Turn off on this device</button>
+          </div>
+        </div>
+        <p id="syncMsg" class="note"></p>
+      </div>
+      <div class="card">
         <h2>Backup</h2>
-        <p class="note">Progress is saved in this browser only, so the iPad and the laptop each keep their own. Use a backup to move it between them.</p>
+        <p class="note">Without family sync, progress is saved in this browser only. A backup file moves it between devices.</p>
         <div class="action-row">
           <button id="exportBtn" class="btn btn-ghost">⬇ Download backup</button>
           <label class="btn btn-ghost file-btn">⬆ Restore backup<input id="importInput" type="file" accept="application/json,.json" hidden></label>
@@ -262,8 +278,9 @@
 
 <div id="confetti" aria-hidden="true"></div>
 
-<script src="words.js?v=2026.11.04.2"></script>
-<script src="defs.js?v=2026.11.04.2"></script>
-<script src="app.js?v=2026.11.04.2"></script>
+<script src="words.js?v=2026.11.04.3"></script>
+<script src="defs.js?v=2026.11.04.3"></script>
+<script src="app.js?v=2026.11.04.3"></script>
+<script src="sync.js?v=2026.11.04.3"></script>
 </body>
 </html>

@@ -1,0 +1,12 @@
+# SpellIt!'s family sync API. From this folder: npx wrangler@4 deploy
+# The family PIN is a secret, not in this repo: npx wrangler@4 secret put FAMILY_PIN
+# (and for wrangler dev, FAMILY_PIN=... in worker/.dev.vars, which git ignores).
+name = "spellit-sync"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spellit"
+database_id = "9e5171ad-1ef3-4d74-b847-dea3cb631de8"

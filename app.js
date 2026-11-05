@@ -2,7 +2,7 @@
 
 // The version this copy of the app is; version.json on the site is the latest.
 // Bump both before pushing: node tools/bump_version.mjs
-const APP_VERSION = '2026.11.04.2';
+const APP_VERSION = '2026.11.04.3';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -117,6 +117,7 @@ let db = loadDb();
 
 function saveDb() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); } catch (e) { /* private mode */ }
+  if (typeof noteChanges === 'function' && noteChanges()) syncSoon(); // family sync (sync.js)
 }
 
 // ---------- helpers ----------
@@ -1418,6 +1419,7 @@ function renderSettings() {
   $('#rateInput').value = db.settings.rate;
   $('#rateOut').textContent = `${db.settings.rate}×`;
   $('#pinMsg').textContent = db.settings.pin ? 'A PIN is set.' : 'No PIN set. Anyone can open Parent mode.';
+  renderSync();
 }
 
 $('#voiceSelect').addEventListener('change', (e) => { db.settings.voiceURI = e.target.value; saveDb(); });

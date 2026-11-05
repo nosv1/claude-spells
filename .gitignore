@@ -1,0 +1,5 @@
+.vscode/
+# Cloudflare dev state and local database (wrangler dev)
+worker/.wrangler/
+# Local secrets for wrangler dev (the family PIN): never commit
+worker/.dev.vars
