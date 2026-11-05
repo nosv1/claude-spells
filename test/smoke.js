@@ -106,6 +106,41 @@
     check('setup wears the theme', document.documentElement.dataset.theme === 'ocean');
     Object.assign(sp, { stars: starsWere, theme: 'classic', pen: 'ink' });
 
+    // Change buddy.
+    show('setup');
+    $('#setupHeader .avatar-btn').click();
+    check('buddy picker opens on the current one', $('#avatarDialog').open && $('#avatarPicker2 input:checked').value === sp.avatar);
+    $('#avatarPicker2 input[value="👧"]').checked = true;
+    $('#avatarDialog').close('ok');
+    $('#avatarDialog').dispatchEvent(new Event('close')); // the real one comes later, as a task
+    check('buddy changed', sp.avatar === '👧' && $('#setupHeader .avatar-btn').textContent === '👧');
+
+    // Fair stars: levels well under the best one mastered pay less.
+    const fp = newProfile('Farmer', '🧒', '2');
+    const win = (grade, difficulty) => ({ t: 1, source: 'grade', grade, difficulty, correct: 10, total: 10, stars: 3 });
+    check('nothing mastered: full stars', masteredLevel(fp) === -1 && starCap(fp, 'grade', '1', 'easy') === 3);
+    fp.history.push(win('1', 'easy'));
+    check('one win is not mastery', masteredLevel(fp) === -1);
+    fp.history.push(win('1', 'easy'));
+    check('two wins master a level', masteredLevel(fp) === 0 && starCap(fp, 'grade', '1', 'easy') === 2
+      && starCap(fp, 'grade', '1', 'medium') === 3);
+    fp.history.push(win('2', 'medium'), win('2', 'medium'));
+    check('a grade under pays nothing, just under pays 1', starCap(fp, 'grade', '1', 'easy') === 0
+      && starCap(fp, 'grade', '1', 'hard') === 1 && starCap(fp, 'grade', '2', 'easy') === 1 && starCap(fp, 'grade', '2', 'hard') === 3);
+    check('word lists always pay', starCap(fp, 'list:x', '1', 'easy') === 3);
+    check('note points to the next level', starCapNote(fp, 0).includes('2nd grade Hard'));
+    Object.assign(fp, { source: 'grade', grade: '1', difficulty: 'easy' });
+    const quizWas = quiz;
+    quiz = { p: fp, mode: 'type', hintsLeft: 1, bestStreak: 10, results: Array.from({ length: 10 }, () => ({ correct: true, perfect: true })) };
+    saveQuizResult();
+    check('farming a mastered level earns nothing', quiz.summary.stars === 0 && fp.stars === 0 && quiz.summary.capNote !== '');
+    Object.assign(fp, { grade: '2', difficulty: 'hard' });
+    saveQuizResult();
+    check('a new level pays 3', quiz.summary.stars === 3 && fp.stars === 3 && !quiz.summary.mastered);
+    saveQuizResult();
+    check('second win masters it', quiz.summary.mastered === '2nd grade Hard' && masteredLevel(fp) === 5);
+    quiz = quizWas;
+
     // Custom list.
     show('parent');
     activeTab = 'lists';

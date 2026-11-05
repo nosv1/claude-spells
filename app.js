@@ -286,6 +286,48 @@ function sourceLabel(src, grade, difficulty) {
   return `${gradeLabel(grade)} · ${cap(difficulty)}`;
 }
 
+// ---------- levels and fair stars ----------
+// A level is a grade + difficulty, in order: 1st Easy (0), 1st Medium (1), ... Adult Hard (26).
+// A player has mastered a level after MASTER_TIMES quizzes of it at MASTER_SCORE or better.
+// Grade words well below their best mastered level pay fewer stars, so replaying easy words
+// can't farm stars for the shop. The grade can't be trusted for this: kids can change it.
+// Word lists from Parent mode and missed-word practice always pay full stars.
+const DIFFS = ['easy', 'medium', 'hard'];
+const MASTER_SCORE = 0.9;
+const MASTER_TIMES = 2;
+
+const levelOf = (grade, difficulty) => GRADES.findIndex(([g]) => g === grade) * 3 + DIFFS.indexOf(difficulty);
+const levelName = (lv) => `${gradeLabel(GRADES[Math.floor(lv / 3)][0])} ${cap(DIFFS[lv % 3])}`;
+
+// The highest level this player has mastered, or -1 for none yet.
+function masteredLevel(p) {
+  const wins = {};
+  let best = -1;
+  for (const h of p.history) {
+    if (h.source !== 'grade' || h.correct / h.total < MASTER_SCORE) continue;
+    const lv = levelOf(h.grade, h.difficulty);
+    wins[lv] = (wins[lv] || 0) + 1;
+    if (wins[lv] >= MASTER_TIMES) best = Math.max(best, lv);
+  }
+  return best;
+}
+
+// The most stars a quiz can earn: 3 on a level not mastered yet, 2 on the best one mastered,
+// 1 just under it, none a whole grade (3 levels) or more under it.
+function starCap(p, source = p.source, grade = p.grade, difficulty = p.difficulty) {
+  if (source !== 'grade') return 3;
+  const gap = masteredLevel(p) - levelOf(grade, difficulty);
+  return gap < 0 ? 3 : gap === 0 ? 2 : gap < 3 ? 1 : 0;
+}
+
+// What the setup screen and results say about a capped level.
+function starCapNote(p, capStars) {
+  if (capStars >= 3) return '';
+  const next = Math.min(masteredLevel(p) + 1, GRADES.length * 3 - 1);
+  const pays = capStars ? `up to ${capStars} star${capStars === 1 ? '' : 's'}` : 'no stars';
+  return `You've mastered ${capStars ? 'this level' : 'these words'}, so it earns ${pays} now. Try ${levelName(next)} for 3 stars!`;
+}
+
 // Weighted random sample: words missed before come up more, unseen words a bit more.
 function pickWords(p, pool) {
   const weight = (it) => {
@@ -336,11 +378,13 @@ function gradeOptions(selected) {
   return GRADES.map(([k, label]) => `<option value="${k}"${k === selected ? ' selected' : ''}>${label}</option>`).join('');
 }
 
+const avatarOptions = (chosen) => AVATARS.map((a) => `
+  <label><input type="radio" name="avatar" value="${a}"${a === chosen ? ' checked' : ''}><span>${a}</span></label>`).join('');
+
 $('#addPlayerBtn').addEventListener('click', () => {
   $('#playerName').value = '';
   $('#playerGrade').innerHTML = gradeOptions('2');
-  $('#avatarPicker').innerHTML = AVATARS.map((a, i) => `
-    <label><input type="radio" name="avatar" value="${a}"${i === 0 ? ' checked' : ''}><span>${a}</span></label>`).join('');
+  $('#avatarPicker').innerHTML = avatarOptions(AVATARS[0]);
   $('#playerDialog').returnValue = '';
   $('#playerDialog').showModal();
   $('#playerName').focus();
@@ -356,6 +400,23 @@ $('#playerDialog').addEventListener('close', () => {
   renderHome();
 });
 
+// Change an existing player's buddy: tap their avatar on the setup screen.
+$('#screen-setup').addEventListener('click', (e) => {
+  if (!e.target.closest('.avatar-btn')) return;
+  $('#avatarPicker2').innerHTML = avatarOptions(current().avatar);
+  $('#avatarDialog').returnValue = '';
+  $('#avatarDialog').showModal();
+  $('#avatarPicker2 input:checked')?.scrollIntoView({ block: 'center' });
+});
+
+$('#avatarDialog').addEventListener('close', () => {
+  const picked = $('#avatarPicker2 input:checked')?.value;
+  if ($('#avatarDialog').returnValue !== 'ok' || !picked) return;
+  current().avatar = picked;
+  saveDb();
+  renderSetup();
+});
+
 // ---------- setup ----------
 
 function renderSetup() {
@@ -363,7 +424,7 @@ function renderSetup() {
   if (!p) return show('home');
   const streak = dayStreak(p);
   $('#setupHeader').innerHTML = `
-    <span class="avatar">${p.avatar}</span>
+    <button class="avatar avatar-btn" aria-label="Change buddy" title="Change buddy">${p.avatar}</button>
     <div>
       <div class="name">${esc(p.name)}</div>
       <div class="badges">
@@ -386,6 +447,8 @@ function renderSetup() {
   $('#sourceSelect').innerHTML = opts.map(([v, label]) =>
     `<option value="${v}"${v === p.source ? ' selected' : ''}>${esc(label)}</option>`).join('');
   $('#gradeSelect').disabled = p.source !== 'grade';
+  $('#starNote').textContent = starCapNote(p, starCap(p));
+  $('#starNote').hidden = !$('#starNote').textContent;
 
   const recent = p.history.slice(-5).reverse();
   $('#recentList').innerHTML = recent.length
@@ -395,7 +458,7 @@ function renderSetup() {
     : '<li class="note">No quizzes yet. Press Start!</li>';
 }
 
-$('#gradeSelect').addEventListener('change', (e) => { current().grade = e.target.value; saveDb(); });
+$('#gradeSelect').addEventListener('change', (e) => { current().grade = e.target.value; saveDb(); renderSetup(); });
 
 $('#diffSeg').addEventListener('click', (e) => {
   const b = e.target.closest('button');
@@ -994,7 +1057,9 @@ function saveQuizResult() {
   const p = quiz.p;
   const correct = quiz.results.filter((r) => r.correct).length;
   const total = quiz.results.length;
-  const stars = starsFor(correct, total);
+  const capStars = starCap(p);
+  const masteredBefore = masteredLevel(p);
+  const stars = Math.min(starsFor(correct, total), capStars);
   const same = p.history.filter((h) => h.source === p.source && (p.source !== 'grade' || (h.grade === p.grade && h.difficulty === p.difficulty)));
   const prevBest = same.length ? Math.max(...same.map((h) => h.correct / h.total)) : null;
 
@@ -1010,12 +1075,17 @@ function saveQuizResult() {
     hintsUsed: HINTS_PER_QUIZ - quiz.hintsLeft, bestStreak: quiz.bestStreak, stars,
   });
   saveDb();
-  quiz.summary = { correct, total, stars, unlocks, newBest: prevBest !== null && correct / total > prevBest };
+  const mastered = masteredLevel(p);
+  quiz.summary = {
+    correct, total, stars, unlocks, newBest: prevBest !== null && correct / total > prevBest,
+    capNote: starsFor(correct, total) > stars ? starCapNote(p, capStars) : '',
+    mastered: mastered > masteredBefore ? levelName(mastered) : '',
+  };
 }
 
 function showResults() {
   const p = quiz.p;
-  const { correct, total, stars, newBest, unlocks = [] } = quiz.summary;
+  const { correct, total, stars, newBest, unlocks = [], capNote = '', mastered = '' } = quiz.summary;
   const perfect = quiz.results.filter((r) => r.perfect).length;
   const missed = quiz.results.filter((r) => !r.correct);
 
@@ -1028,6 +1098,8 @@ function showResults() {
     quiz.bestStreak >= 2 ? `🔥 Best streak: <b>${quiz.bestStreak}</b> in a row` : '',
     `📅 Practiced <b>${streak}</b> day${streak === 1 ? '' : 's'} in a row`,
     newBest ? '🏆 <b>New personal best!</b>' : '',
+    mastered ? `🎓 <b>You mastered ${esc(mastered)}!</b>` : '',
+    capNote ? `<span class="note">${esc(capNote)}</span>` : '',
   ].filter(Boolean).map((s) => `<li>${s}</li>`).join('');
   $('#resultMissed').innerHTML = missed.length
     ? `<p class="note">Words to practice:</p><div class="chips">${missed.map((r) => `<span class="chip">${esc(r.w)}</span>`).join('')}</div>`
@@ -1169,6 +1241,7 @@ function renderProgress() {
           <div class="stat"><b>${trendHtml}</b><span>vs 5 before</span></div>
           <div class="stat"><b>🔥 ${dayStreak(p)}</b><span>day streak</span></div>
           <div class="stat"><b>⭐ ${p.stars}</b><span>stars</span></div>
+          <div class="stat"><b>${masteredLevel(p) < 0 ? '—' : levelName(masteredLevel(p))}</b><span>mastered</span></div>
         </div>
         ${bars ? `<p class="note">Recent scores</p><div class="bars">${bars}</div>` : ''}
         ${worst.length ? `<p class="note">Most missed</p><div class="chips" style="justify-content:flex-start">${worst.map((x) => `<span class="chip">${esc(x.w)} <small>✗${x.wrong} ✓${x.right}</small></span>`).join('')}</div>` : ''}
