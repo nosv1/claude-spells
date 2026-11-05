@@ -94,6 +94,7 @@
     }
     check(`built-in words: sentences blank them, meanings don't show them${bankProblems.length ? ` (${bankProblems.join('; ')})` : ''}`, !bankProblems.length);
     check('2nd, 6th and Adult have 60 words a level', ['2', '6', 'adult'].every((g) => Object.values(WORDS[g]).every((l) => l.length === 60)));
+    check('every grade has at least 40 words a level', Object.values(WORDS).every((g) => Object.values(g).every((l) => l.length >= 40)));
 
     // Rest correct.
     while (!quiz.reviewing && quiz.i < quiz.items.length) {
