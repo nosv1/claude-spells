@@ -32,7 +32,7 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
     means the browser didn't run: that is not a pass.
   - **To look at a screen:** `test/run.ps1 -Shot <name>` saves `shot.png` (iPad-sized, 820×1180)
     of the demo data in `test/shot.js`: `home`, `setup`, `quiz`, `write`, `results`, `parent`,
-    `players`. Move it out of the repo after viewing (it isn't ignored).
+    `players`, `lists`. Move it out of the repo after viewing (it isn't ignored).
 - **Before pushing a change the site serves:** `node tools/bump_version.mjs` (updates
   `version.json`, `APP_VERSION` and the `?v=` links, so open iPads see an Update banner).
 - Ideas not built yet go in [BACKLOG.md](BACKLOG.md).

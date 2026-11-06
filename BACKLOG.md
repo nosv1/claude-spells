@@ -20,6 +20,11 @@ Ideas parked for later, roughly in order of how much fun they'd add.
     service worker and VAPID signing in the Worker. Much more code.
   - Email via Cloudflare Email Routing (needs a domain on Cloudflare).
 
+- **Follow-ups from the 2026-11-05 parent tools** (Claude's suggestions, not asked for yet):
+  - Tell the kid when a parent gives stars ("🎁 Dad gave you 5 stars!") on their start screen.
+    The grants are already logged in `p.bonus`; it needs a "seen up to" time on the player.
+  - Handwriting "It was wrong" only puts the word back on the practice list. It could also
+    take back that word's share of the quiz's score and stars (for now: Players tab, minus stars).
 - **Treats / reward shop.** Parent sets rewards ("ice cream = 30 stars") and kids spend the stars
   they earn. A parent approves each one. This needs a "spent stars" field next to `stars`.
 - **Most improved.** A weekly badge for the player whose score went up most vs. last week. Parent
