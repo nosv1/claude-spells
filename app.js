@@ -2,7 +2,7 @@
 
 // The version this copy of the app is; version.json on the site is the latest.
 // Bump both before pushing: node tools/bump_version.mjs
-const APP_VERSION = '2026.11.05.2';
+const APP_VERSION = '2026.11.05.3';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -478,8 +478,24 @@ function poolFor(p) {
     const list = db.lists.find((l) => `list:${l.id}` === p.source);
     return list ? list.words : [];
   }
-  return (WORDS[p.grade]?.[p.difficulty] || []).map(([w, s]) => ({ w, s }));
+  return gradeWords(p.grade, p.difficulty);
 }
+
+// A grade level's words: the built-in ones, plus any a parent added to that level (a word list
+// with a grade and difficulty, made in Parent mode › Word lists). An added word that's already
+// built in replaces it, so its own sentence and meaning are used.
+function gradeWords(grade, difficulty) {
+  const out = new Map((WORDS[grade]?.[difficulty] || []).map(([w, s]) => [w.toLowerCase(), { w, s }]));
+  for (const l of db.lists) {
+    if (l.grade !== grade || l.difficulty !== difficulty) continue;
+    for (const it of l.words) {
+      const key = it.w.toLowerCase();
+      out.set(key, { ...it, s: it.s || out.get(key)?.s || '' }); // no sentence given: keep the built-in one
+    }
+  }
+  return [...out.values()];
+}
+const ownLists = () => db.lists.filter((l) => !l.grade); // the ones players pick under "Words"
 
 function sourceLabel(src, grade, difficulty) {
   if (src === 'missed') return 'Missed words';
@@ -645,7 +661,7 @@ function renderSetup() {
 
   const missed = missedWords(p).length;
   const opts = [['grade', 'Grade words']];
-  db.lists.forEach((l) => opts.push([`list:${l.id}`, `📋 ${l.name} (${l.words.length})`]));
+  ownLists().forEach((l) => opts.push([`list:${l.id}`, `📋 ${l.name} (${l.words.length})`]));
   if (missed) opts.push(['missed', `🔁 My missed words (${missed})`]);
   if (!opts.some(([v]) => v === p.source)) p.source = 'grade';
   $('#sourceSelect').innerHTML = opts.map(([v, label]) =>
@@ -678,8 +694,8 @@ function renderLearned(p) {
   const what = p.source === 'grade' ? `${gradeLabel(p.grade)} ${cap(p.difficulty)} words` : 'words in this list';
   let grade = '';
   if (p.source === 'grade' && WORDS[p.grade]) {
-    const all = DIFFS.flatMap((d) => WORDS[p.grade][d] || []);
-    grade = `<small class="note">All of ${gradeLabel(p.grade)}: ${all.filter(([w]) => isLearned(p, w)).length} of ${all.length}</small>`;
+    const all = DIFFS.flatMap((d) => gradeWords(p.grade, d));
+    grade = `<small class="note">All of ${gradeLabel(p.grade)}: ${all.filter((it) => isLearned(p, it.w)).length} of ${all.length}</small>`;
   }
   box.innerHTML = `
     <div class="learned-head"><span>📚 Words learned</span><b>${n} of ${pool.length}</b></div>
@@ -1636,6 +1652,26 @@ function parseListText(text) {
   return { words, warnings };
 }
 
+// Where a list's words go: '' for its own list (players pick it under "Words"), or 'grade|difficulty'
+// to add them to that grade level's built-in words.
+function renderListPlace(selected = '') {
+  const levels = GRADES.flatMap(([g, label]) => DIFFS.map((d) => [`${g}|${d}`, `${label} · ${cap(d)}`]));
+  $('#listPlace').innerHTML = [['', 'Their own list (players pick it under "Words")'], ...levels]
+    .map(([v, label]) => `<option value="${v}"${v === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
+  updateListPlaceNote();
+}
+
+function updateListPlaceNote() {
+  const [g, d] = $('#listPlace').value.split('|');
+  $('#listPlaceNote').textContent = g
+    ? `Added to the ${gradeLabel(g)} ${cap(d)} words, for everyone who plays that level. The name is just for you here.`
+    : '';
+  $('#listName').placeholder = g ? `Extra ${gradeLabel(g)} ${cap(d)} words` : 'Week 9 spelling list';
+}
+$('#listPlace').addEventListener('change', updateListPlaceNote);
+
+const placeLabel = (l) => (l.grade ? `${gradeLabel(l.grade)} · ${cap(l.difficulty)}` : '');
+
 function resetListEditor() {
   editingListId = null;
   $('#listName').value = '';
@@ -1643,31 +1679,42 @@ function resetListEditor() {
   $('#listWarn').textContent = '';
   $('#listEditorTitle').textContent = 'New word list';
   $('#cancelListBtn').hidden = true;
+  renderListPlace();
 }
 
 function renderLists() {
+  if (!$('#listPlace').options.length) renderListPlace();
   $('#listsView').innerHTML = db.lists.length
     ? db.lists.map((l) => `
         <div class="card list-row">
-          <div><b>${esc(l.name)}</b><br><span class="note">${l.words.length} words: ${esc(l.words.slice(0, 6).map((x) => x.w).join(', '))}${l.words.length > 6 ? '…' : ''}</span></div>
+          <div><b>${esc(l.name)}</b>${l.grade ? ` <span class="badge">In ${esc(placeLabel(l))}</span>` : ''}<br><span class="note">${l.words.length} word${l.words.length === 1 ? '' : 's'}:${esc(l.words.slice(0, 6).map((x) => x.w).join(', '))}${l.words.length > 6 ? '…' : ''}</span></div>
           <div class="action-row">
             <button class="btn btn-ghost" data-edit="${l.id}">Edit</button>
             <button class="btn btn-ghost btn-danger" data-del="${l.id}">Delete</button>
           </div>
         </div>`).join('')
-    : '<p class="note">No custom lists yet. Each list you save shows up under "Words" for every player.</p>';
+    : '<p class="note">No custom lists yet. A list of its own shows up under "Words" for every player; words added to a grade join that grade\'s quizzes.</p>';
 }
 
 $('#saveListBtn').addEventListener('click', () => {
-  const name = $('#listName').value.trim();
+  const [grade, difficulty] = $('#listPlace').value.split('|');
+  const name = $('#listName').value.trim() || (grade ? `Extra ${gradeLabel(grade)} ${cap(difficulty)} words` : '');
   const { words, warnings } = parseListText($('#listWords').value);
   if (!name || !words.length) {
-    $('#listWarn').textContent = 'Give the list a name and at least one word.';
+    $('#listWarn').textContent = grade ? 'Add at least one word.' : 'Give the list a name and at least one word.';
     return;
   }
+  if (grade) {
+    const built = new Set((WORDS[grade]?.[difficulty] || []).map(([w]) => w.toLowerCase()));
+    const dupes = words.filter((it) => built.has(it.w.toLowerCase())).map((it) => it.w);
+    if (dupes.length) warnings.push(`Already built in to ${gradeLabel(grade)} ${cap(difficulty)}: ${dupes.join(', ')} (a sentence or meaning you gave is used instead).`);
+  }
   const existing = db.lists.find((l) => l.id === editingListId);
-  if (existing) Object.assign(existing, { name, words });
-  else db.lists.push({ id: uid(), name, words });
+  const list = existing || { id: uid() };
+  delete list.grade;
+  delete list.difficulty;
+  Object.assign(list, { name, words }, grade ? { grade, difficulty } : {});
+  if (!existing) db.lists.push(list);
   saveDb();
   resetListEditor();
   $('#listWarn').textContent = warnings.length ? `Saved. Heads up: ${warnings.join(' ')}` : 'Saved!';
@@ -1683,6 +1730,7 @@ $('#listsView').addEventListener('click', (e) => {
     const l = db.lists.find((x) => x.id === edit.dataset.edit);
     editingListId = l.id;
     $('#listName').value = l.name;
+    renderListPlace(l.grade ? `${l.grade}|${l.difficulty}` : '');
     $('#listWords').value = l.words.map((x) => [x.w, x.s, x.d].filter((v, i, a) => v || a.slice(i + 1).some(Boolean)).join(' | ')).join('\n');
     $('#listEditorTitle').textContent = `Editing "${l.name}"`;
     $('#cancelListBtn').hidden = false;

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Dancing+Script:wght@700&family=Pacifico&family=Bangers&family=Satisfy&family=Orbitron:wght@800&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.11.05.2">
+  <link rel="stylesheet" href="style.css?v=2026.11.05.3">
 </head>
 <body>
 <main id="app">
@@ -173,6 +173,8 @@
       <div class="card">
         <h2 id="listEditorTitle">New word list</h2>
         <p class="note">Great for this week's spelling list from school. One word per line: <b>word | sentence | meaning</b>. The sentence and meaning are optional. Words without a meaning are looked up online when the Meaning button is pressed.</p>
+        <label class="field"><span>Put the words in</span><select id="listPlace"></select></label>
+        <p id="listPlaceNote" class="note"></p>
         <label class="field"><span>List name</span><input id="listName" type="text" placeholder="Week 9 spelling list"></label>
         <label class="field"><span>Words</span>
           <textarea id="listWords" rows="8" spellcheck="false" placeholder="friend | My friend sat next to me at lunch. | Someone you like and have fun with.&#10;because | I wore a coat because it was cold.&#10;laugh"></textarea>
@@ -279,9 +281,9 @@
 
 <div id="confetti" aria-hidden="true"></div>
 
-<script src="words.js?v=2026.11.05.2"></script>
-<script src="defs.js?v=2026.11.05.2"></script>
-<script src="app.js?v=2026.11.05.2"></script>
-<script src="sync.js?v=2026.11.05.2"></script>
+<script src="words.js?v=2026.11.05.3"></script>
+<script src="defs.js?v=2026.11.05.3"></script>
+<script src="app.js?v=2026.11.05.3"></script>
+<script src="sync.js?v=2026.11.05.3"></script>
 </body>
 </html>

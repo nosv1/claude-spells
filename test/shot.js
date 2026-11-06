@@ -1,5 +1,5 @@
 // Seeds demo data and opens a screen for screenshots: shot.html#quiz, #write, #home, #setup, #results,
-// #parent, #players
+// #parent, #players, #lists
 (function () {
   localStorage.removeItem(STORE_KEY);
   db = loadDb();
@@ -37,7 +37,7 @@
       showResults();
     }
   }
-  if (screen === 'parent' || screen === 'players') {
+  if (screen === 'parent' || screen === 'players' || screen === 'lists') {
     for (let i = 0; i < 8; i++) a.history.push({ t: Date.now() - i * 864e5, source: 'grade', grade: '2', difficulty: 'easy', correct: 5 + (i % 4), total: 10, stars: 1 });
     a.words = { because: { w: 'because', wrong: 3, right: 1 }, friend: { w: 'friend', wrong: 2, right: 2 } };
     const c1 = [[0.7, 0.3], [0.4, 0.3], [0.3, 0.55], [0.4, 0.75], [0.7, 0.75]];
@@ -48,7 +48,9 @@
     keep('cat', true, [[c1], [a1], [t1, t2]], Date.now() - 3e5);
     keep('cats', true, [[c1], [a1], []], Date.now() - 2e5);
     keep('tat', false, [[t1, t2], [a1], [t1, t2]], Date.now() - 1e5);
-    if (location.hash === '#players') activeTab = 'players';
+    db.lists.push({ id: 'g2e', name: 'Extra 2nd grade Easy words', grade: '2', difficulty: 'easy', words: [{ w: 'zebra', s: 'The zebra ran.' }] });
+    db.lists.push({ id: 'w9', name: 'Week 9', words: [{ w: 'friend', s: '' }, { w: 'laugh', s: '' }] });
+    if (screen !== 'parent') activeTab = screen;
     show('parent');
   }
 })();

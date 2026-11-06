@@ -14,7 +14,8 @@ green or red as you type it.
 - **Players** each get their own stars, day streak, and missed-words list, and see how many words
   of their level and grade they've learned (last try right).
 - **Parent mode** (optional PIN) shows everyone's progress and lets you add your own word lists,
-  like the weekly list from school. It also shows the handwriting behind each word a speller marked
+  like the weekly list from school, either as a list of their own or straight into a grade level
+  (say, 2nd grade Easy) alongside the built-in words. It also shows the handwriting behind each word a speller marked
   themselves (flagging blank or extra letters, with an "It was wrong" button), and lets you give or
   take away stars. You can also pick the voice and its speed and back up your data.
 

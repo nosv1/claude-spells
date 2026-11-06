@@ -208,6 +208,39 @@
     while (currentItem() !== noSentence) { type(quiz.word.target); next(); }
     check('sentence buttons off without sentence', $('#saySentenceBtn').disabled);
 
+    // Words added straight to a grade level.
+    quiz = null;
+    show('parent');
+    activeTab = 'lists';
+    renderParent();
+    check('lists can go to any grade level', $('#listPlace').options.length === 1 + GRADES.length * 3);
+    $('#listPlace').value = '2|easy';
+    $('#listPlace').dispatchEvent(new Event('change'));
+    const builtIn = WORDS['2'].easy[0][0];
+    $('#listWords').value = `zebra | The zebra ran fast.\n${builtIn}`;
+    $('#saveListBtn').click();
+    const gl = db.lists.find((l) => l.grade === '2');
+    check('grade words saved without a name', gl && gl.difficulty === 'easy' && gl.name === 'Extra 2nd grade Easy words'
+      && $('#listWarn').textContent.includes(`Already built in to 2nd grade Easy: ${builtIn}`));
+    const g2 = gradeWords('2', 'easy');
+    check('grade level has the added word, no duplicate', g2.length === WORDS['2'].easy.length + 1 && g2.some((x) => x.w === 'zebra')
+      && g2.find((x) => x.w === builtIn).s === WORDS['2'].easy[0][1]);
+    const gp = db.profiles[0];
+    Object.assign(gp, { source: 'grade', grade: '2', difficulty: 'easy' });
+    currentId = gp.id;
+    show('setup');
+    check('grade words stay out of the Words menu', ![...$('#sourceSelect').options].some((o) => o.value === `list:${gl.id}`)
+      && poolFor(gp).some((x) => x.w === 'zebra') && $('#learned .learned-head b').textContent.endsWith(`of ${WORDS['2'].easy.length + 1}`));
+    show('parent');
+    $(`#listsView [data-edit="${gl.id}"]`).click();
+    check('editing keeps the grade', $('#listPlace').value === '2|easy');
+    $('#listPlace').value = '';
+    $('#listName').value = 'Zoo words';
+    $('#saveListBtn').click();
+    check('moved back to its own list', !gl.grade && !gl.difficulty && !gradeWords('2', 'easy').some((x) => x.w === 'zebra'));
+    db.lists = db.lists.filter((l) => l !== gl);
+    gp.source = `list:${db.lists[0].id}`;
+
     renderProgress();
     check('progress renders', $('#tab-progress').textContent.includes('Tester'));
     check('saved to storage', JSON.parse(localStorage.getItem(STORE_KEY)).profiles.length === 1);
