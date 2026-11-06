@@ -72,3 +72,10 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
   looks, and keep the letters to spell in plain print.
 - Changing live data: edit it through sync (a device, or a newer record via the Worker) so every
   iPad picks it up. Don't edit D1 rows by hand: devices would push their older copy back.
+- **Drawing break: live, but not yet tried on a real iPad** (site 2026.11.05.4, Worker deployed
+  11-05 via `tools/deploy_worker.mjs`, commit 844bd38). Next session, ask how it went:
+  - Did drawing feel right with a finger or Apple Pencil (palm touches, lag on the 1024 px canvas)?
+  - Did a drawing carry over between iPads?
+  - Is the earn rule right? 4 of the first 5 was Claude's call (Chris said "earned by doing
+    well"); it's `DRAW_EARN` in `draw.js`.
+  - Hailee's reaction: she asked for this one, so her look-and-feel notes come first.
