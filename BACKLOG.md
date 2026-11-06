@@ -6,10 +6,19 @@ Ideas parked for later, roughly in order of how much fun they'd add.
   3-minute free-draw pad with a countdown and a few colors, then back to the next word. Open
   questions: every quiz or a per-player switch? Keep the drawings (a gallery) or throw them away?
   A "Back to spelling" button to leave early.
-- **Progress to parents' phones** (2026-11-04). A short summary when a quiz or a session ends
-  ("Hailee: 9/10, missed *because*, 3-day streak"). Needs the Cloudflare sync first. Options:
-  web push from the Worker (parent adds SpellIt! to their home screen and allows notifications;
-  free, no accounts) or email via Cloudflare Email Routing (needs a domain on Cloudflare).
+- **Progress to parents' phones** (2026-11-04; asked for again 11-05, parked). A short summary
+  when a quiz ends ("Hailee: 9/10, missed *because*, 3-day streak"). Sync is built now, so the
+  Worker can spot new quizzes itself: in `/sync`, compare a player's incoming `history` with the
+  stored copy, and announce entries that are new and less than a day old (so a device joining
+  with old quizzes doesn't spam). The client would add `missed` (and maybe how many handwriting
+  words were self-marked) to each history entry so the message can say more. Ways to send it,
+  all free:
+  - **ntfy** (simplest, ~30 lines): the Worker POSTs JSON to `https://ntfy.sh/` with a secret
+    topic (Worker secret `NTFY_TOPIC`); parents install the ntfy app and subscribe. The topic
+    name is the only secret.
+  - Web push into SpellIt! itself: no extra app, but iPhone needs it on the home screen, plus a
+    service worker and VAPID signing in the Worker. Much more code.
+  - Email via Cloudflare Email Routing (needs a domain on Cloudflare).
 
 - **Treats / reward shop.** Parent sets rewards ("ice cream = 30 stars") and kids spend the stars
   they earn. A parent approves each one. This needs a "spent stars" field next to `stars`.
