@@ -21,6 +21,10 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
   Worker secret `FAMILY_PIN` (never in the repo). Deploy: `cd worker && npx wrangler@4 deploy`.
   Test: `node --test test/worker.test.mjs test/fill.test.mjs` against
   `npx wrangler@4 dev --port 8792 --test-scheduled`.
+  - **Clean up after `wrangler dev` / `wrangler tail` on Windows.** Stopping the task (or
+    `timeout`) only kills the outer `npx` shell; `wrangler` and its `workerd.exe` runtimes keep
+    running. When done, check for leftover `workerd.exe` / `wrangler` processes and stop them.
+    Nothing local needs to stay running: the site, voices and overnight fill are all on Cloudflare.
 - **Natural voices** (`/speak` on the same Worker): Workers AI Aura-2, clips kept in D1, capped at
   `DAILY_CHARS` a day so it stays inside the free allowance. A cron in the last UTC hour spends what's
   left making clips ahead (`worker/src/fill.js`). **Chris won't pay for this**: keep it free.
@@ -36,3 +40,13 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
 - **Before pushing a change the site serves:** `node tools/bump_version.mjs` (updates
   `version.json`, `APP_VERSION` and the `?v=` links, so open iPads see an Update banner).
 - Ideas not built yet go in [BACKLOG.md](BACKLOG.md).
+
+## Live family data (as of 2026-11-05)
+
+- **Players:** Hailee, Seth, Aiden and Chris, synced through the Worker's D1 (`records` table).
+- **Voices:** on 11-05 Chris had everyone set to the natural voice **Helena** "for now". That was
+  done by changing the player records through sync, not in code. Players can change their own
+  voice on their start screen. The overnight fill makes clips only in the voices players use.
+- **Stars** were reset once on 11-04 (`STARS_EPOCH = 1` in `app.js`), after the fair-stars rules.
+- Changing live data: edit it through sync (a device, or a newer record via the Worker) so every
+  iPad picks it up. Don't edit D1 rows by hand: devices would push their older copy back.
