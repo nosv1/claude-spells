@@ -11,7 +11,9 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
 ## This project
 
 - **Mode: "just build it"** (his call, 2026-11-02). This is a family tool, not a skill-building
-  project. Claude writes the code and Chris reviews it.
+  project. Claude writes the code and Chris reviews it. **Push straight to `main`** once tests
+  pass and the version is bumped: no branch or PR here (his call, 2026-11-05; this overrides the
+  profile's "code goes on a branch").
 - **No build step, no dependencies.** `index.html` + `style.css` + `app.js` + `words.js` +
   `defs.js` + `sync.js`. Keep it that way so Pages serves the repo root as-is.
 - **Family sync** (`sync.js`, API in `worker/`): a Cloudflare Worker + D1 on the same account as
