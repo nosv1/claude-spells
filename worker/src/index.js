@@ -177,8 +177,16 @@ async function fill(env, now = new Date()) {
     if (r.ok) bank = parseBank(await r.text());
   } catch (e) { /* the site is down: the family's own lists still get done */ }
   const order = fillOrder(bank, profiles, lists);
-  const voices = [...new Set([FAMILY_VOICE, ...profiles.map((p) => String(p.voiceURI || '').replace(/^natural:/, ''))])]
-    .filter((v) => VOICES.includes(v));
+  // The voices the players use, most used first. A player on the family voice (or a device voice)
+  // counts for FAMILY_VOICE, the app's default; nobody yet means FAMILY_VOICE too.
+  const uses = new Map();
+  for (const p of profiles) {
+    const v = String(p.voiceURI || '').replace(/^natural:/, '');
+    const k = VOICES.includes(v) ? v : FAMILY_VOICE;
+    uses.set(k, (uses.get(k) || 0) + 1);
+  }
+  if (!uses.size) uses.set(FAMILY_VOICE, 1);
+  const voices = [...uses].sort((a, b) => b[1] - a[1]).map(([v]) => v);
 
   const made = [];
   for (const voice of voices) {
