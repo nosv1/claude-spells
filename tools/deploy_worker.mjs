@@ -127,17 +127,20 @@ for (let i = 0; i < 6; i++) { // a new version can take a few seconds to reach e
   if (!problems.length) break;
   await sleep(5000);
 }
+// From here on, exitCode rather than process.exit(): exiting while fetch's connections are still
+// closing trips a Node assertion on Windows (exit code 9 after a deploy that went fine).
 if (!problems.length) {
   console.log(`ok: live, with ${ROUTES.join(' ')} and every table.\n\nDeployed ${commit}.`);
-  process.exit(0);
+  process.exitCode = 0;
+} else {
+  console.error(`live checks failed:\n  ${problems.join('\n  ')}`);
+  step('Rolling back');
+  try {
+    console.log(wrangler(`rollback ${before || ''} --message "deploy_worker.mjs: live checks failed for ${commit}" -y`));
+    const after = await verify();
+    console.error(after.length ? `Still failing after the rollback:\n  ${after.join('\n  ')}\nLook now: npx wrangler@4 tail` : 'Rolled back; the previous version is live and checks out.');
+  } catch (e) {
+    console.error(`The rollback failed too: ${e.stderr || e.message}\nRoll back by hand now: cd worker && npx wrangler@4 rollback`);
+  }
+  process.exitCode = 1;
 }
-console.error(`live checks failed:\n  ${problems.join('\n  ')}`);
-step('Rolling back');
-try {
-  console.log(wrangler(`rollback ${before || ''} --message "deploy_worker.mjs: live checks failed for ${commit}" -y`));
-  const after = await verify();
-  console.error(after.length ? `Still failing after the rollback:\n  ${after.join('\n  ')}\nLook now: npx wrangler@4 tail` : 'Rolled back; the previous version is live and checks out.');
-} catch (e) {
-  console.error(`The rollback failed too: ${e.stderr || e.message}\nRoll back by hand now: cd worker && npx wrangler@4 rollback`);
-}
-process.exit(1);
