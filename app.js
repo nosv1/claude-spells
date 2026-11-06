@@ -2,7 +2,7 @@
 
 // The version this copy of the app is; version.json on the site is the latest.
 // Bump both before pushing: node tools/bump_version.mjs
-const APP_VERSION = '2026.11.05.3';
+const APP_VERSION = '2026.11.05.4';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -37,6 +37,8 @@ const ICONS = {
   eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/>',
   write: '<path d="M3 15c1.6-6 3.4-6 4.6 0s3.2 6 4.6 0 3.2-6 4.6 0 2.4 4 4.2 1"/>',
+  brush: '<path d="M20.5 3.5c-3 1.8-6.5 5-8.6 7.6l2 2c2.6-2.1 5.8-5.6 7.6-8.6z"/><path d="M10.2 12.6c-2.1.1-3.4 1.6-3.6 3.6-.1 1.3-.9 2.3-2.1 2.6 1.2 1 2.6 1.4 4.1 1.3 2.6-.2 4.1-2.2 3.8-4.6z"/>',
+  trash: '<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/>',
 };
 // The shop: [id, name, stars to unlock, color]. A player's total stars unlock things (stars are
 // never spent), so an unlocked theme or pen stays theirs. Theme colors live in style.css.
@@ -151,7 +153,7 @@ function shortDate(ts) {
 }
 
 // A player's screens wear their theme; home and Parent mode stay Classic.
-const PLAYER_SCREENS = ['setup', 'quiz', 'results', 'shop'];
+const PLAYER_SCREENS = ['setup', 'quiz', 'results', 'shop', 'draw'];
 
 function applyTheme(name) {
   const p = PLAYER_SCREENS.includes(name) ? current() : null;
@@ -174,7 +176,7 @@ function show(name) {
 // iPad Safari ignores user-scalable=no, so pinches are stopped here. On the quiz screen a stray
 // finger drag shouldn't slide the page around either, unless the page really is taller than the
 // screen (small phone, keyboard up), when it still has to scroll.
-const quizShown = () => !$('#screen-quiz').hidden;
+const quizShown = () => !$('#screen-quiz').hidden || !$('#screen-draw').hidden;
 document.addEventListener('gesturestart', (e) => e.preventDefault()); // Safari's pinch event
 document.addEventListener('touchmove', (e) => {
   const fits = document.documentElement.scrollHeight <= window.innerHeight + 1;
@@ -784,6 +786,8 @@ function startQuiz() {
     mode: p.inputMode || 'type',
   };
   prefetchSpeech(quiz.items, p);
+  syncDrawings(p.id); // drawings made on another iPad, ready for a drawing break (draw.js)
+  $('#drawBreakBtn').hidden = true;
   show('quiz');
   $('#reviewBanner').hidden = true;
   loadWord();
@@ -935,6 +939,7 @@ function finishWord(correct) {
       quiz.missed.push(it);
     }
     renderStreak();
+    checkDrawBreak(); // halfway, and doing well: a drawing break (draw.js)
   }
   saveDb();
 

@@ -12,7 +12,7 @@ const API = process.env.API || 'http://127.0.0.1:8792';
 const PIN = /FAMILY_PIN=(\S+)/.exec(readFileSync(new URL('../worker/.dev.vars', import.meta.url), 'utf8'))[1];
 const sql = (q) => execSync(`npx wrangler@4 d1 execute spellit --local --command "${q}"`,
   { cwd: new URL('../worker/', import.meta.url), stdio: 'ignore' });
-sql('DELETE FROM records; DELETE FROM fails; DELETE FROM clips; DELETE FROM spend;');
+sql('DELETE FROM records; DELETE FROM fails; DELETE FROM clips; DELETE FROM spend; DELETE FROM drawings;');
 
 const sync = (body, pin = PIN, ip = '1.1.1.1') => fetch(`${API}/sync`, {
   method: 'POST',
@@ -60,6 +60,57 @@ test('too many wrong PINs locks that address out, even with the right one', asyn
   assert.equal((await sync({ since: 0, changes: [] }, PIN, '6.6.6.6')).status, 429);
   assert.equal((await sync({ since: 0, changes: [] }, PIN, '1.1.1.1')).status, 200, 'other addresses still work');
   sql('DELETE FROM fails;');
+});
+
+const drawings = (body, pin = PIN) => fetch(`${API}/drawings`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-Family-Pin': pin, Origin: 'https://nosv1.github.io', 'CF-Connecting-IP': '3.3.3.3' },
+  body: JSON.stringify(body),
+});
+const PNG = 'data:image/png;base64,iVBORw0KGgo=';
+const JPG = 'data:image/jpeg;base64,/9j/4AAQ';
+
+test('drawings: needs the PIN', async () => {
+  assert.equal((await drawings({ op: 'list', player: 'p1' }, '0000')).status, 401);
+});
+
+test('drawings: kept per player, fetched one at a time, and not in /sync', async () => {
+  const put = await (await drawings({ op: 'put', id: 'd1', player: 'p1', image: PNG, updated: 1000 })).json();
+  assert.deepEqual(put, { kept: true, updated: 1000 });
+  await drawings({ op: 'put', id: 'd2', player: 'p1', image: JPG, updated: 1100 });
+  await drawings({ op: 'put', id: 'd3', player: 'p2', image: PNG, updated: 1200 });
+  const list = await (await drawings({ op: 'list', player: 'p1' })).json();
+  assert.deepEqual(list.drawings.map((d) => d.id).sort(), ['d1', 'd2']);
+  assert.equal(list.drawings[0].image, undefined, 'the list carries no images');
+  const got = await (await drawings({ op: 'get', id: 'd2' })).json();
+  assert.deepEqual(got, { id: 'd2', player: 'p1', image: JPG, updated: 1100, deleted: false });
+  assert.equal((await drawings({ op: 'get', id: 'nope' })).status, 404);
+  const s = await (await sync({ since: 0, changes: [] })).json();
+  assert.ok(!s.records.some((r) => r.kind === 'drawing'), 'sync never carries drawings');
+});
+
+test('drawings: newest wins; a losing put hears the newer time', async () => {
+  const old = await (await drawings({ op: 'put', id: 'd1', player: 'p1', image: JPG, updated: 900 })).json();
+  assert.deepEqual(old, { kept: false, updated: 1000 });
+  assert.equal((await (await drawings({ op: 'get', id: 'd1' })).json()).image, PNG);
+  await drawings({ op: 'put', id: 'd1', player: 'p1', image: null, updated: 2000, deleted: true });
+  const gone = await (await drawings({ op: 'get', id: 'd1' })).json();
+  assert.equal(gone.deleted, true);
+  assert.equal(gone.image, null);
+  const list = await (await drawings({ op: 'list', player: 'p1' })).json();
+  assert.equal(list.drawings.find((d) => d.id === 'd1').deleted, true, 'other devices learn it was deleted');
+});
+
+test('drawings: bad requests are refused', async () => {
+  const bad = [
+    { op: 'nope', id: 'd1' },
+    { op: 'list', player: 'a b' },
+    { op: 'put', id: 'd9', player: 'p1', image: 'data:text/html;base64,PGI+', updated: 1 },
+    { op: 'put', id: 'd9', player: 'p1', image: 'https://example.com/x.png', updated: 1 },
+    { op: 'put', id: 'd9', player: 'p1', image: PNG, updated: 1.5 },
+    { op: 'put', id: 'd9', player: 'p1', image: `data:image/png;base64,${'A'.repeat(1024 * 1024)}`, updated: 1 },
+  ];
+  for (const b of bad) assert.equal((await drawings(b)).status, 400, JSON.stringify(b).slice(0, 80));
 });
 
 const speak = (body, pin = PIN) => fetch(`${API}/speak`, {

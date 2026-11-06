@@ -2,10 +2,9 @@
 
 Ideas parked for later, roughly in order of how much fun they'd add.
 
-- **Drawing break** (Hailee's idea, 2026-11-04; "not sure yet"). Halfway through a quiz, a
-  3-minute free-draw pad with a countdown and a few colors, then back to the next word. Open
-  questions: every quiz or a per-player switch? Keep the drawings (a gallery) or throw them away?
-  A "Back to spelling" button to leave early.
+- **Drawing break follow-ups** (the break itself was built 2026-11-05). Ideas, not asked for:
+  drawings in Parent mode (see them, delete them), in the backup file, and the Rainbow pen as a
+  drawing color for players who've unlocked it.
 - **Progress to parents' phones** (2026-11-04; asked for again 11-05, parked). A short summary
   when a quiz ends ("Hailee: 9/10, missed *because*, 3-day streak"). Sync is built now, so the
   Worker can spot new quizzes itself: in `/sync`, compare a player's incoming `history` with the

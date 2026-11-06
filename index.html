@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Dancing+Script:wght@700&family=Pacifico&family=Bangers&family=Satisfy&family=Orbitron:wght@800&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.11.05.3">
+  <link rel="stylesheet" href="style.css?v=2026.11.05.4">
 </head>
 <body>
 <main id="app">
@@ -101,6 +101,9 @@
       <div id="streakBadge" class="streak-badge"></div>
     </div>
     <div class="progress"><div id="progressBar"></div></div>
+    <button id="drawBreakBtn" class="banner draw-break-btn" hidden>
+      <i class="ic" data-icon="brush"></i><span><b>You earned a drawing break!</b> Tap to draw for 3 minutes.</span>
+    </button>
     <div id="reviewBanner" class="banner" hidden>
       <span id="reviewText">Practice round: let's try the ones you missed.</span>
       <button id="skipReviewBtn" class="link-btn">Stop practice</button>
@@ -139,6 +142,31 @@
         <button id="nextBtn" class="btn btn-primary" hidden>Next →</button>
       </div>
     </div>
+  </section>
+
+  <!-- Drawing break (draw.js) -->
+  <section id="screen-draw" class="screen" hidden>
+    <div class="quiz-top">
+      <h2 class="draw-title"><i class="ic" data-icon="brush"></i> Drawing break</h2>
+      <div id="drawClock" class="draw-clock">3:00</div>
+    </div>
+    <p id="drawMsg" class="banner draw-msg" aria-live="polite" hidden></p>
+    <div id="drawPicker" class="card" hidden>
+      <h2>Keep drawing one, or start a new one</h2>
+      <p class="note">The 3 minutes start when you pick.</p>
+      <div id="drawGallery" class="draw-gallery"></div>
+    </div>
+    <div id="drawPad" class="card draw-card" hidden>
+      <div class="draw-canvas-wrap"><canvas id="drawCanvas" width="1024" height="1024" aria-label="Draw here"></canvas></div>
+      <div id="drawColors" class="pen-row" role="group" aria-label="Color"></div>
+      <div class="action-row draw-tools">
+        <div id="drawSizes" class="draw-sizes" role="group" aria-label="Brush size"></div>
+        <button id="drawEraseBtn" class="btn btn-ghost"><i class="ic" data-icon="eraser"></i> Eraser</button>
+        <button id="drawUndoBtn" class="btn btn-ghost"><i class="ic" data-icon="undo"></i> Undo</button>
+        <button id="drawClearBtn" class="btn btn-ghost"><i class="ic" data-icon="trash"></i> Clear</button>
+      </div>
+    </div>
+    <button id="drawDoneBtn" class="btn btn-primary btn-big">Back to spelling</button>
   </section>
 
   <!-- Results -->
@@ -281,9 +309,10 @@
 
 <div id="confetti" aria-hidden="true"></div>
 
-<script src="words.js?v=2026.11.05.3"></script>
-<script src="defs.js?v=2026.11.05.3"></script>
-<script src="app.js?v=2026.11.05.3"></script>
-<script src="sync.js?v=2026.11.05.3"></script>
+<script src="words.js?v=2026.11.05.4"></script>
+<script src="defs.js?v=2026.11.05.4"></script>
+<script src="app.js?v=2026.11.05.4"></script>
+<script src="sync.js?v=2026.11.05.4"></script>
+<script src="draw.js?v=2026.11.05.4"></script>
 </body>
 </html>

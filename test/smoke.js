@@ -101,6 +101,11 @@
       next();
     }
     check('review round starts with missed word', quiz.reviewing && quiz.word.target === missedWord);
+    check('drawing break earned at halfway (4 of 5), still there in practice', quiz.drawBreak === 'earned' && !$('#drawBreakBtn').hidden);
+    const fq = (rights, n = 10) => ({ items: Array(n), results: rights.map((c) => ({ correct: !!c })), reviewing: false });
+    check('drawing break rule: 4 of 5, only at halfway, not on tiny lists', drawBreakEarned(fq([1, 1, 0, 1, 1]))
+      && !drawBreakEarned(fq([1, 0, 0, 1, 1])) && !drawBreakEarned(fq([1, 1, 1, 1])) && !drawBreakEarned(fq([1, 1, 1, 1, 1, 1]))
+      && !drawBreakEarned(fq([1, 1], 3)) && drawBreakEarned(fq([1, 1], 4)) && !drawBreakEarned({ ...fq([1, 1, 1, 1, 1]), drawBreak: 'used' }));
     check('history saved', db.profiles[0].history.length === 1 && db.profiles[0].history[0].correct === 9);
     type(missedWord);
     next();
@@ -116,6 +121,7 @@
     $('#giveUpBtn').click(); next();
     while (!quiz.reviewing) { type(quiz.word.target); next(); }
     check('practice: both missed words', quiz.missed.length === 2 && currentItem().w === m1);
+    check('3 of the first 5: no drawing break', !quiz.drawBreak && $('#drawBreakBtn').hidden);
     $('#giveUpBtn').click(); next();
     type(quiz.word.target); next();
     check('practice: a word still wrong comes round again', $('#screen-results').hidden && quiz.reviewing
@@ -488,6 +494,100 @@
       await tick();
       check("day's clips used up: device voice", !('speechSynthesis' in window) || say.last instanceof SpeechSynthesisUtterance);
       naturalPausedUntil = 0;
+
+      // Drawing break, with drawings synced through a stand-in for /drawings. Kept in memory here:
+      // headless Edge's IndexedDB doesn't answer under --virtual-time-budget (test/drawings-idb.mjs
+      // checks IndexedDB in a real-time browser instead).
+      openDrawIdb = async () => null;
+      const pics = new Map();
+      window.fetch = async (url, opts) => {
+        const b = JSON.parse(opts.body);
+        const ok = (x) => ({ ok: true, status: 200, json: async () => x });
+        if (!url.endsWith('/drawings')) return { ok: false, status: 404 };
+        if (b.op === 'list') return ok({ drawings: [...pics.values()].filter((d) => d.player === b.player).map(({ id, updated, deleted }) => ({ id, updated, deleted })) });
+        if (b.op === 'get') return ok(pics.get(b.id));
+        const cur = pics.get(b.id);
+        if (cur && !(b.updated > cur.updated)) return ok({ kept: false, updated: cur.updated });
+        pics.set(b.id, { id: b.id, player: b.player, image: b.image, updated: b.updated, deleted: b.deleted });
+        return ok({ kept: true, updated: b.updated });
+      };
+      const earnBreak = () => {
+        startQuiz();
+        for (let i = 0; i < 5; i++) {
+          if (i === 2) $('#giveUpBtn').click(); else type(quiz.word.target);
+          if (i < 4) next();
+        }
+      };
+      const pe = (kind, x, y) => {
+        const r = drawCanvas.getBoundingClientRect();
+        drawCanvas.dispatchEvent(new PointerEvent(kind, { clientX: r.left + x * r.width, clientY: r.top + y * r.height, pointerId: 1, bubbles: true }));
+      };
+      const line = (x1, y1, x2, y2) => { pe('pointerdown', x1, y1); pe('pointermove', x2, y2); pe('pointerup', x2, y2); };
+      const px = (x, y) => [...drawCtx.getImageData(x * DRAW_SIZE, y * DRAW_SIZE, 1, 1).data];
+      const isRed = ([r, g]) => r > 200 && g < 110;
+      const isWhite = ([r, g, b]) => r > 250 && g > 250 && b > 250;
+      currentId = hp.id;
+      earnBreak();
+      $('#drawBreakBtn').click();
+      await drawWork;
+      check('drawing break: none yet, so straight to a new drawing, clock at 3:00', !$('#screen-draw').hidden && !$('#drawPad').hidden
+        && drawing && $('#drawClock').textContent === '3:00' && $('#drawBreakBtn').hidden);
+      $('#drawColors [data-color="#e5484d"]').click();
+      line(0.2, 0.2, 0.8, 0.8);
+      check('drawing: paints in the picked color', isRed(px(0.5, 0.5)) && isWhite(px(0.8, 0.2)));
+      $('#drawUndoBtn').click();
+      check('drawing: undo takes the stroke off', isWhite(px(0.5, 0.5)) && !drawing.strokes.length);
+      line(0.2, 0.2, 0.8, 0.8);
+      $('#drawClearBtn').click();
+      check('drawing: clear', isWhite(px(0.5, 0.5)));
+      $('#drawUndoBtn').click();
+      check('drawing: undo brings a clear back', isRed(px(0.5, 0.5)));
+      $('#drawEraseBtn').click();
+      line(0.5, 0.1, 0.5, 0.9);
+      check('drawing: eraser', isWhite(px(0.5, 0.5)) && isRed(px(0.3, 0.3)));
+      $('#drawEraseBtn').click();
+      drawEndAt = Date.now() + 20e3;
+      tickDrawClock();
+      check('drawing: 30-second warning', $('#drawClock').classList.contains('warn') && !$('#drawMsg').hidden);
+      $('#drawDoneBtn').click();
+      await drawWork;
+      const firstId = (await drawingsOf(hp.id))[0]?.id;
+      check('back to spelling where it left off, no second break', !$('#screen-quiz').hidden && quiz.drawBreak === 'used'
+        && quiz.i === 4 && quiz.word.done && $('#drawBreakBtn').hidden);
+      check('drawing kept on this device and sent to the family', firstId && pics.get(firstId)?.image.startsWith('data:image/png')
+        && !(await getDrawing(firstId)).dirty);
+      // One made on another iPad comes in; carrying on with the first one starts from it.
+      const otherId = `${hp.id}-other`;
+      pics.set(otherId, { id: otherId, player: hp.id, image: pics.get(firstId).image, updated: Date.now() + 1000, deleted: false });
+      earnBreak();
+      $('#drawBreakBtn').click();
+      await drawWork;
+      check('second break: the gallery, with the one from the other iPad', !$('#drawPicker').hidden && !drawing
+        && $('#drawGallery').querySelectorAll('[data-open]').length === 2 && !!$('#drawGallery [data-new]'));
+      $(`#drawGallery [data-open="${firstId}"]`).click();
+      await drawWork;
+      check('carry on: the saved drawing is back on the pad', drawing?.id === firstId && isRed(px(0.3, 0.3)) && !drawing.locked);
+      const before1 = pics.get(firstId).updated;
+      line(0.1, 0.95, 0.9, 0.95);
+      drawEndAt = Date.now() - 1;
+      tickDrawClock();
+      check("time's up: it says so and stops drawing", $('#drawMsg').textContent.startsWith('Time') && drawing.locked);
+      endDrawBreak(); // what the timer does a moment later
+      await drawWork;
+      check("time's up: kept with the new stroke, back to spelling", !$('#screen-quiz').hidden
+        && pics.get(firstId).updated > before1 && (await drawingsOf(hp.id)).length === 2);
+      // Deleting one from the gallery deletes it everywhere.
+      earnBreak();
+      $('#drawBreakBtn').click();
+      await drawWork;
+      $(`#drawGallery [data-del="${firstId}"]`).click();
+      await drawWork;
+      check('deleting a drawing: gone here and from the family', $('#drawGallery').querySelectorAll('[data-open]').length === 1
+        && pics.get(firstId).deleted && (await getDrawing(firstId)).deleted);
+      $('#drawDoneBtn').click();
+      check('leaving from the gallery uses up the break', !$('#screen-quiz').hidden && quiz.drawBreak === 'used');
+      quiz = null;
+      drawMem.clear();
       syncDisconnect();
       renderParent();
       check('turned off: players stay', !syncState.pin && db.profiles.length === 1 && !$('#syncOff').hidden);

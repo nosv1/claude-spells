@@ -15,7 +15,7 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
   pass and the version is bumped: no branch or PR here (his call, 2026-11-05; this overrides the
   profile's "code goes on a branch").
 - **No build step, no dependencies.** `index.html` + `style.css` + `app.js` + `words.js` +
-  `defs.js` + `sync.js`. Keep it that way so Pages serves the repo root as-is.
+  `defs.js` + `sync.js` + `draw.js`. Keep it that way so Pages serves the repo root as-is.
 - **Family sync** (`sync.js`, API in `worker/`): a Cloudflare Worker + D1 on the same account as
   Ride Finder, at `https://spellit-sync.nosv1.workers.dev`. No accounts: the family PIN is the
   Worker secret `FAMILY_PIN` (never in the repo). Deploy: `cd worker && npx wrangler@4 deploy`.
@@ -28,6 +28,14 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
 - **Natural voices** (`/speak` on the same Worker): Workers AI Aura-2, clips kept in D1, capped at
   `DAILY_CHARS` a day so it stays inside the free allowance. A cron in the last UTC hour spends what's
   left making clips ahead (`worker/src/fill.js`). **Chris won't pay for this**: keep it free.
+- **Drawing break** (`draw.js`, `/drawings` on the same Worker; built 2026-11-05). Getting 4 of
+  the first 5 words right (no "Show me") earns 3 minutes of drawing, once per quiz, with no stars.
+  Each player has a gallery to carry on with. The pictures are PNG data URLs kept in IndexedDB
+  (too big for localStorage) and in D1's `drawings` table, apart from `/sync`. They aren't in
+  the Parent-mode backup file.
+  - The smoke test keeps drawings in memory, because headless Edge's IndexedDB doesn't answer
+    under `--virtual-time-budget`. `node test/drawings-idb.mjs` checks the IndexedDB side in
+    real-time headless Edge.
 - **Run it:** open `index.html`. **Test:** `bash test/run.sh` (headless Edge).
   - **Claude: run tests from PowerShell, not the Bash tool.** In the Bash tool's sandbox, Edge
     exits 0 and prints nothing, so `run.sh` looks like it passed with no output. Use
@@ -36,7 +44,8 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
     means the browser didn't run: that is not a pass.
   - **To look at a screen:** `test/run.ps1 -Shot <name>` saves `shot.png` (iPad-sized, 820×1180)
     of the demo data in `test/shot.js`: `home`, `setup`, `quiz`, `write`, `results`, `parent`,
-    `players`, `lists`. Move it out of the repo after viewing (it isn't ignored).
+    `players`, `lists`, `break`, `draw`, `gallery`. Move it out of the repo after viewing (it
+    isn't ignored).
 - **Before pushing a change the site serves:** `node tools/bump_version.mjs` (updates
   `version.json`, `APP_VERSION` and the `?v=` links, so open iPads see an Update banner).
 - Ideas not built yet go in [BACKLOG.md](BACKLOG.md).

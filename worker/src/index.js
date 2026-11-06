@@ -9,6 +9,14 @@
 // player or list. The answer is every record changed since the device's cursor, plus the record
 // that won for any change that lost, so the device can take it. "more" means call again.
 //
+//   POST /drawings { op: 'list', player }                        →  { drawings: [{ id, updated, deleted }] }
+//                  { op: 'get', id }                             →  { id, player, image, updated, deleted }
+//                  { op: 'put', id, player, image, updated, deleted }  →  { kept, updated }
+//
+// A player's drawing-break pictures (draw.js), apart from /sync so a sync never carries images.
+// image is a PNG or JPEG data URL (null once deleted). Newest wins (updated), per drawing; a put
+// that loses says so, with the newer time, and the device fetches that one.
+//
 //   POST /speak { text, voice }  →  audio/mpeg
 //
 // A natural voice saying text (Workers AI, Deepgram Aura-2). Each clip is made once and kept in D1,
@@ -29,6 +37,7 @@ const SITE_ORIGINS = ['https://nosv1.github.io', 'null']; // 'null': index.html 
 const LOCAL_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const KINDS = ['profile', 'list'];
 const ID = /^[\w-]{1,64}$/;
+const IMAGE = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/;
 const MAX_BODY = 4 * 1024 * 1024, MAX_DATA = 1024 * 1024, MAX_CHANGES = 200, PAGE = 200;
 const HOUR = 3600e3;
 const FAILS_PER_IP = 10, FAILS_TOTAL = 100; // wrong PINs allowed per hour
@@ -53,7 +62,7 @@ export default {
     });
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(req.url);
-    const route = { '/sync': sync, '/speak': speak }[url.pathname];
+    const route = { '/sync': sync, '/speak': speak, '/drawings': drawings }[url.pathname];
     if (!route || req.method !== 'POST') return send(404, { error: 'not found' });
 
     // The PIN, behind the wrong-PIN limit.
@@ -120,6 +129,36 @@ async function sync(body, env, send) {
   }
   const out = (r) => ({ kind: r.kind, id: r.id, data: r.data, updated: r.updated, deleted: !!r.deleted });
   return send(200, { cursor, more, records: [...page, ...winners].map(out) });
+}
+
+async function drawings(body, env, send) {
+  const bad = () => send(400, { error: 'bad request' });
+  const { op, id, player } = body;
+  if (op === 'list') {
+    if (!ID.test(player || '')) return bad();
+    const { results } = await env.DB.prepare('SELECT id, updated, deleted FROM drawings WHERE player = ?').bind(player).all();
+    return send(200, { drawings: results.map((r) => ({ id: r.id, updated: r.updated, deleted: !!r.deleted })) });
+  }
+  if (!ID.test(id || '')) return bad();
+  if (op === 'get') {
+    const r = await env.DB.prepare('SELECT id, player, image, updated, deleted FROM drawings WHERE id = ?').bind(id).first();
+    if (!r) return send(404, { error: 'not found' });
+    return send(200, { ...r, deleted: !!r.deleted });
+  }
+  if (op !== 'put') return bad();
+  const { image, updated, deleted } = body;
+  const ok = ID.test(player || '') && Number.isSafeInteger(updated)
+    && (deleted ? image == null : typeof image === 'string' && image.length <= MAX_DATA && IMAGE.test(image));
+  if (!ok) return bad();
+  const res = await env.DB.prepare(`
+    INSERT INTO drawings (id, player, image, updated, deleted) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (id) DO UPDATE SET
+      player = excluded.player, image = excluded.image, updated = excluded.updated, deleted = excluded.deleted
+    WHERE excluded.updated > drawings.updated`,
+  ).bind(id, player, deleted ? null : image, updated, deleted ? 1 : 0).run();
+  if (res.meta.changes) return send(200, { kept: true, updated });
+  const r = await env.DB.prepare('SELECT updated FROM drawings WHERE id = ?').bind(id).first();
+  return send(200, { kept: false, updated: r.updated });
 }
 
 async function speak(body, env, send, cors) {

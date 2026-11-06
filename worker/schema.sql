@@ -36,3 +36,14 @@ CREATE TABLE IF NOT EXISTS spend (
   day TEXT PRIMARY KEY,
   chars INTEGER NOT NULL
 );
+
+-- Drawing-break pictures, one row per drawing: image is a PNG or JPEG data URL (null once deleted).
+-- Apart from records, so a sync never carries them. updated: the device's clock, for newest-wins.
+CREATE TABLE IF NOT EXISTS drawings (
+  id TEXT PRIMARY KEY,
+  player TEXT NOT NULL,
+  image TEXT,
+  updated INTEGER NOT NULL,
+  deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS drawings_player ON drawings (player);
