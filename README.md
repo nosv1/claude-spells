@@ -7,10 +7,16 @@ green or red as you type it.
 - **Three clues:** the word, the word in a sentence, and what the word means (with the word
   itself blanked out). Built-in meanings are in [defs.js](defs.js). Words without one are looked up at
   [dictionaryapi.dev](https://dictionaryapi.dev/).
-- **Quizzes are 10 words** with one hint each. Missed words come back in a practice round at the end.
-- **Players** each get their own stars, day streak, and missed-words list.
+- **Quizzes are 10 words** with one hint each. Missed words come back in a practice round at the
+  end, which keeps going round until each one is right (or the speller taps Stop practice).
+- **Typing or handwriting.** In handwriting mode the speller checks their own letters; pens unlocked
+  in the shop can be switched right on the writing screen.
+- **Players** each get their own stars, day streak, and missed-words list, and see how many words
+  of their level and grade they've learned (last try right).
 - **Parent mode** (optional PIN) shows everyone's progress and lets you add your own word lists,
-  like the weekly list from school. You can also pick the voice and its speed and back up your data.
+  like the weekly list from school. It also shows the handwriting behind each word a speller marked
+  themselves (flagging blank or extra letters, with an "It was wrong" button), and lets you give or
+  take away stars. You can also pick the voice and its speed and back up your data.
 
 No server and no accounts. Progress is saved in the browser (`localStorage`), so each device keeps
 its own. Use **Parent mode → Settings → Backup** to move it between devices.

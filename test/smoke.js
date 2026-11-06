@@ -109,6 +109,25 @@
     check('day streak 1', dayStreak(db.profiles[0]) === 1);
     check('missed word cleared after review', missedWords(db.profiles[0]).length === 0);
 
+    // Practice keeps going round until every missed word is right.
+    startQuiz();
+    const [m1, m2] = [quiz.items[0].w, quiz.items[1].w];
+    $('#giveUpBtn').click(); next();
+    $('#giveUpBtn').click(); next();
+    while (!quiz.reviewing) { type(quiz.word.target); next(); }
+    check('practice: both missed words', quiz.missed.length === 2 && currentItem().w === m1);
+    $('#giveUpBtn').click(); next();
+    type(quiz.word.target); next();
+    check('practice: a word still wrong comes round again', $('#screen-results').hidden && quiz.reviewing
+      && quiz.missed.length === 1 && currentItem().w === m1 && $('#reviewText').textContent.includes('1 more'));
+    type(quiz.word.target); next();
+    check('practice: ends once all are right', !$('#screen-results').hidden && m2);
+    startQuiz();
+    $('#giveUpBtn').click(); next();
+    while (!quiz.reviewing) { type(quiz.word.target); next(); }
+    $('#skipReviewBtn').click();
+    check('practice: Stop practice ends it', !$('#screen-results').hidden && $('#skipReviewBtn').textContent === 'Stop practice');
+
     // Shop.
     const sp = db.profiles[0];
     show('shop');
@@ -279,6 +298,65 @@
       check('easy: check on after writing', !$('#nextLetterBtn').disabled);
       $('#nextLetterBtn').click();
       check('easy: check button checks', W().checked);
+
+      // Pens on the writing screen: unlocked ones switch, locked ones don't.
+      startQuiz();
+      check('pen row shows every pen', $('#penRow').children.length === PENS.length && $('#penRow .using').dataset.pen === 'ink');
+      p.stars = 6;
+      $('#penRow [data-pen="sky"]').click();
+      check('locked pen stays locked', p.pen === 'ink' && $('#feedback').textContent.includes('15 stars'));
+      renderPenRow();
+      $('#penRow [data-pen="grape"]').click();
+      check('unlocked pen picked from the pad', p.pen === 'grape' && $('#penRow .using').dataset.pen === 'grape');
+      p.pen = 'ink';
+
+      // Handwriting check: self-marked words are kept, packed small, for Parent mode.
+      const pts = [[0.1, 0.1], [0.11, 0.1], [0.5, 0.5], [0.9, 0.95]];
+      const back = unpackStrokes(packStrokes([pts, [[0.3, 0.3]]]));
+      check('strokes pack and unpack', back.length === 2 && back[0].length === 3 && back[1].length === 1
+        && Math.abs(back[0][2][0] - 0.9) < 0.02 && Math.abs(back[0][0][1] - 0.1) < 0.02);
+      const kept = p.writing || [];
+      check('self-marked words kept, give-ups not', kept.length === 2 && kept[0].w === 'cat' && kept[0].said && !kept[1].said
+        && kept[0].boxes.length === 3 && kept[0].hint);
+      check('marked right with a blank letter is flagged', writingFlag(kept[0]) && !writingFlag(kept[1]));
+      p.words.cat.last = true;
+      quiz = null;
+      show('parent');
+      activeTab = 'progress';
+      renderParent();
+      check('progress shows the handwriting, flagged ones open', $('#tab-progress .hw-review[open]') !== null
+        && $('#tab-progress .hw-item.flagged') !== null && $('#tab-progress canvas[data-hw]').width > 1);
+      $('#tab-progress [data-hw-wrong]').click();
+      check('"It was wrong" puts the word on the practice list', kept[0].fixed && p.words.cat.last === false
+        && missedWords(p).some((x) => x.w === 'cat') && !$('#tab-progress [data-hw-wrong]'));
+      check('progress shows words learned', $('#tab-progress').textContent.includes('words learned'));
+
+      // Words learned on the start screen.
+      currentId = p.id;
+      Object.assign(p, { source: 'grade', grade: '2', difficulty: 'easy' });
+      const easy2 = WORDS['2'].easy;
+      p.words = {};
+      recordWord(p, { w: easy2[0][0] }, true);
+      recordWord(p, { w: easy2[1][0] }, false);
+      recordWord(p, { w: WORDS['2'].hard[0][0] }, true);
+      show('setup');
+      check('start screen: words learned at this level and grade', $('#learned .learned-head b').textContent === `1 of ${easy2.length}`
+        && $('#learned').textContent.includes(`All of 2nd grade: 2 of ${DIFFS.reduce((n, d) => n + WORDS['2'][d].length, 0)}`));
+
+      // Stars from a parent.
+      show('parent');
+      activeTab = 'players';
+      renderParent();
+      p.stars = 3;
+      const card = () => $(`#tab-players [data-player="${p.id}"]`);
+      card().querySelector('[data-stars]').value = '5';
+      card().querySelector('[data-act="stars"]').click();
+      check('parent gives stars', p.stars === 8 && p.bonus.at(-1).stars === 5 && card().textContent.includes('Gave'));
+      card().querySelector('[data-stars]').value = '-20';
+      card().querySelector('[data-act="stars"]').click();
+      check('taking stars stops at 0', p.stars === 0 && p.bonus.at(-1).stars === -8);
+      const m = mergeProfiles({ stars: 2, history: [], bonus: [{ t: 1, stars: 2 }] }, { stars: 7, history: [], bonus: [{ t: 1, stars: 2 }, { t: 2, stars: 5 }] });
+      check('sync merge keeps stars given on the other device', m.stars === 7 && m.bonus.length === 2);
 
       // Family sync, against a stand-in for the Worker (same rules: PIN, newest wins, cursor).
       const fake = { pin: '2468', seq: 0, rows: new Map() };

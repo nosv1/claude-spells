@@ -192,7 +192,7 @@ h2 { font-size: 1.25rem; }
 /* ---------- forms ---------- */
 .field { display: block; margin-bottom: 14px; }
 .field > span { display: block; font-weight: 800; margin-bottom: 6px; }
-select, input[type="text"], input[type="password"], textarea {
+select, input[type="text"], input[type="password"], input[type="number"], textarea {
   font: inherit;
   font-size: 16px; /* stops iOS zooming in on focus */
   width: 100%;
@@ -446,7 +446,16 @@ input[type="range"] { width: 100%; }
 
 .pad-wrap { width: min(100%, 420px, 50vh); margin: 0 auto; }
 .pad-wrap canvas { border-color: var(--primary); border-radius: 18px; }
-.write-area.checked .pad-wrap { display: none; }
+.write-area.checked .pad-wrap, .write-area.checked .pen-row { display: none; }
+.pen-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 12px 0 0; }
+.pen-dot {
+  width: 36px; height: 36px; padding: 0; border-radius: 50%;
+  border: 3px solid var(--card); box-shadow: 0 0 0 2px var(--line);
+  display: grid; place-items: center; cursor: pointer;
+}
+.pen-dot.using { box-shadow: 0 0 0 3px var(--primary); }
+.pen-dot.locked { filter: grayscale(0.85); opacity: 0.45; }
+.pen-dot svg { width: 16px; height: 16px; color: #fff; }
 .write-tools { justify-content: center; }
 .write-tools .btn { flex: 1 1 0; padding: 12px 8px; }
 
@@ -490,6 +499,27 @@ input[type="range"] { width: 100%; }
 
 .bars { display: flex; align-items: flex-end; gap: 4px; height: 60px; margin: 8px 0; }
 .bars div { flex: 1; max-width: 26px; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 3px; }
+
+.learned { margin: -4px 0 14px; }
+.learned-head { display: flex; justify-content: space-between; font-weight: 800; margin-bottom: 6px; }
+.learned .meter { display: block; width: 100%; height: 10px; margin-bottom: 4px; }
+.learned .meter i { background: var(--ok); }
+
+.give-row { display: flex; gap: 10px; }
+.give-row input { width: 6em; flex: 0 0 auto; }
+
+/* handwriting check */
+.hw-review { margin-top: 12px; }
+.hw-review summary { cursor: pointer; font-weight: 800; padding: 6px 0; }
+.hw-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.hw-item.flagged { background: var(--bad-bg); border-radius: 12px; padding: 10px; }
+.hw-letters { display: flex; flex-wrap: wrap; gap: 4px; }
+.hw-box { width: 46px; text-align: center; }
+.hw-box canvas { display: block; width: 100%; aspect-ratio: 1; border: 2px solid var(--line); border-radius: 8px; }
+.hw-box.missing canvas { border-style: dashed; background: var(--empty); }
+.hw-box small { font-weight: 900; color: var(--primary); font-size: 1rem; }
+.hw-meta { display: flex; flex-direction: column; gap: 2px; }
+.hw-meta .link-btn { align-self: flex-start; padding: 0; }
 
 .list-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .list-row .action-row { margin-top: 0; }

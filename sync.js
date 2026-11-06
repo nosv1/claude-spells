@@ -89,17 +89,25 @@ function dropLocal(kind, id) {
   else db.lists = db.lists.filter((x) => x.id !== id);
 }
 
-// When a player changed on two devices before they synced: the newer copy, plus any quizzes
-// (and their stars) only the other one has, so neither device's quiz is lost.
+// When a player changed on two devices before they synced: the newer copy, plus anything only the
+// other one has, so neither device's work is lost: quizzes and stars a parent gave (with their
+// stars), and handwriting kept for checking.
 function mergeProfiles(win, lose) {
-  const have = new Set((win.history || []).map((h) => h.t));
-  const extra = (lose.history || []).filter((h) => !have.has(h.t));
-  if (!extra.length) return win;
-  return {
-    ...win,
-    history: [...win.history, ...extra].sort((a, b) => a.t - b.t),
-    stars: (win.stars || 0) + extra.reduce((n, h) => n + (h.stars || 0), 0),
-  };
+  const out = { ...win };
+  let stars = win.stars || 0;
+  let changed = false;
+  for (const key of ['history', 'bonus', 'writing']) {
+    const have = new Set((win[key] || []).map((x) => x.t));
+    const extra = (lose[key] || []).filter((x) => !have.has(x.t));
+    if (!extra.length) continue;
+    changed = true;
+    out[key] = [...(win[key] || []), ...extra].sort((a, b) => a.t - b.t);
+    if (key === 'writing') out[key] = out[key].slice(-WRITING_KEEP);
+    else stars += extra.reduce((n, x) => n + (x.stars || 0), 0);
+  }
+  if (!changed) return win;
+  out.stars = Math.max(0, stars);
+  return out;
 }
 
 // Take the service's records, unless this device changed one later (then it stays, to send).

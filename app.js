@@ -2,7 +2,7 @@
 
 // The version this copy of the app is; version.json on the site is the latest.
 // Bump both before pushing: node tools/bump_version.mjs
-const APP_VERSION = '2026.11.05.1';
+const APP_VERSION = '2026.11.05.2';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -651,6 +651,7 @@ function renderSetup() {
   $('#sourceSelect').innerHTML = opts.map(([v, label]) =>
     `<option value="${v}"${v === p.source ? ' selected' : ''}>${esc(label)}</option>`).join('');
   $('#gradeSelect').disabled = p.source !== 'grade';
+  renderLearned(p);
   $('#starNote').textContent = starCapNote(p, starCap(p));
   $('#starNote').hidden = !$('#starNote').textContent;
 
@@ -660,6 +661,30 @@ function renderSetup() {
         <li><span>${esc(sourceLabel(h.source, h.grade, h.difficulty))}<br><span class="when">${shortDate(h.t)}</span></span>
         <span>${h.correct}/${h.total} ${'⭐'.repeat(h.stars)}</span></li>`).join('')
     : '<li class="note">No quizzes yet. Press Start!</li>';
+}
+
+// A word is learned when its last try was right (a miss, or a parent's "It was wrong", un-learns it).
+const isLearned = (p, w) => p.words[w.toLowerCase()]?.last === true;
+const learnedCount = (p) => Object.values(p.words).filter((x) => x.last === true).length;
+
+// How much of the word bank (or the chosen list) this player has learned: a bar for these words,
+// and for grade words, a line for the whole grade.
+function renderLearned(p) {
+  const box = $('#learned');
+  box.hidden = p.source === 'missed';
+  if (box.hidden) return;
+  const pool = poolFor(p);
+  const n = pool.filter((it) => isLearned(p, it.w)).length;
+  const what = p.source === 'grade' ? `${gradeLabel(p.grade)} ${cap(p.difficulty)} words` : 'words in this list';
+  let grade = '';
+  if (p.source === 'grade' && WORDS[p.grade]) {
+    const all = DIFFS.flatMap((d) => WORDS[p.grade][d] || []);
+    grade = `<small class="note">All of ${gradeLabel(p.grade)}: ${all.filter(([w]) => isLearned(p, w)).length} of ${all.length}</small>`;
+  }
+  box.innerHTML = `
+    <div class="learned-head"><span>📚 Words learned</span><b>${n} of ${pool.length}</b></div>
+    <span class="meter" role="img" aria-label="${n} of ${pool.length} ${esc(what)} learned"><i style="width:${pool.length ? Math.round((n / pool.length) * 100) : 0}%"></i></span>
+    ${grade}`;
 }
 
 $('#gradeSelect').addEventListener('change', (e) => { current().grade = e.target.value; saveDb(); renderSetup(); });
@@ -879,8 +904,11 @@ function finishWord(correct) {
   w.doneAt = Date.now();
   input.readOnly = true;
   const perfect = correct && !w.hadError && !w.hinted;
+  const selfMarked = writing() && w.checked; // after Check: the speller said right or wrong
 
   recordWord(quiz.p, it, correct);
+  if (selfMarked) keepWriting(quiz.p, it.w, correct, w);
+  if (quiz.reviewing && !correct) quiz.retry.push(it); // comes round again
   if (!quiz.reviewing) {
     quiz.results.push({ w: it.w, correct, perfect });
     if (correct) {
@@ -924,13 +952,22 @@ function next() {
     if (quiz.missed.length) {
       quiz.reviewing = true;
       quiz.i = 0;
+      quiz.retry = [];
+      $('#reviewText').textContent = 'Practice round: let\'s try the ones you missed.';
       $('#reviewBanner').hidden = false;
       loadWord();
     } else {
       showResults();
     }
   } else if (quiz.reviewing && quiz.i >= quiz.missed.length) {
-    showResults();
+    // Practice goes round until every missed word is right, or the speller stops it.
+    if (!quiz.retry.length) return showResults();
+    const n = quiz.retry.length;
+    quiz.missed = quiz.retry;
+    quiz.retry = [];
+    quiz.i = 0;
+    $('#reviewText').textContent = `Again! ${n} more to get right.`;
+    loadWord();
   } else {
     loadWord();
   }
@@ -971,7 +1008,37 @@ function setupWriteArea() {
   for (let i = 0; i < start; i++) addBox();
   sizeCanvas(pad);
   selectBox(0);
+  renderPenRow();
 }
+
+// Pen dots under the pad: the unlocked pens switch straight away; locked ones show what they cost.
+const RAINBOW = 'conic-gradient(#ff3b3b, #ffb000, #22c55e, #3b82f6, #a855f7, #ff3b3b)';
+
+function renderPenRow() {
+  const p = quiz.p;
+  const using = shopItem(PENS, p.pen)[0];
+  $('#penRow').innerHTML = PENS.map(([id, name, cost, color]) => {
+    const locked = p.stars < cost;
+    const label = locked ? `${name}: unlocks at ${cost} stars` : name;
+    return `<button type="button" class="pen-dot${id === using ? ' using' : ''}${locked ? ' locked' : ''}" data-pen="${id}"
+      style="background:${color || RAINBOW}" aria-label="${esc(label)}" title="${esc(label)}"${id === using ? ' aria-pressed="true"' : ''}>${locked ? LOCK_SVG : ''}</button>`;
+  }).join('');
+}
+
+$('#penRow').addEventListener('click', (e) => {
+  const b = e.target.closest('.pen-dot');
+  const w = quiz?.word;
+  if (!b || !w?.boxes || w.checked || w.done) return;
+  const [, name, cost] = shopItem(PENS, b.dataset.pen);
+  if (quiz.p.stars < cost) {
+    setFeedback(`${name} unlocks at ${cost} stars. You have ${quiz.p.stars}.`, '');
+    return;
+  }
+  quiz.p.pen = b.dataset.pen;
+  saveDb();
+  renderPenRow();
+  w.boxes.forEach(renderBox);
+});
 
 function addBox() {
   const w = quiz.word;
@@ -998,7 +1065,7 @@ function sizeCanvas(canvas) {
 
 // Points are stored as 0–1 fractions, so the same strokes draw on the pad and in the strip.
 // A hint's guide letter is drawn underneath, sitting on the ruled baseline (78%).
-function drawStrokes(canvas, strokes, ghost) {
+function drawStrokes(canvas, strokes, ghost, pen = quiz?.p?.pen) {
   const ctx = canvas.getContext('2d');
   const { width: cw, height: ch } = canvas;
   ctx.clearRect(0, 0, cw, ch);
@@ -1012,7 +1079,7 @@ function drawStrokes(canvas, strokes, ghost) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.lineWidth = cw * 0.05;
-  const [, , , color] = shopItem(PENS, quiz?.p?.pen);
+  const [, , , color] = shopItem(PENS, pen);
   ctx.strokeStyle = color || '#23204a';
   let hue = 0;
   for (const s of strokes) {
@@ -1183,6 +1250,50 @@ window.addEventListener('resize', () => {
   sizeCanvas(pad);
   quiz.word.boxes.forEach((b) => { sizeCanvas(b.canvas); renderBox(b); });
 });
+
+// ---------- handwriting check (Parent mode) ----------
+// Nothing reads handwriting, so a speller marks their own. Each self-marked word is kept (the
+// last WRITING_KEEP of them, in p.writing) for a parent to look over in Parent mode › Progress.
+// Strokes are packed small, since they sync with the player: each point is two characters on a
+// 64 × 64 grid, points closer than PACK_STEP squares to the last one are dropped, '.' between strokes.
+const WRITING_KEEP = 30;
+const PACK_ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const PACK_STEP = 1.5;
+
+function packStrokes(strokes) {
+  const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 63);
+  return strokes.map((s) => {
+    let out = '', last = null;
+    s.forEach(([x, y], i) => {
+      const pt = [q(x), q(y)];
+      if (last && i < s.length - 1 && Math.hypot(pt[0] - last[0], pt[1] - last[1]) < PACK_STEP) return;
+      out += PACK_ABC[pt[0]] + PACK_ABC[pt[1]];
+      last = pt;
+    });
+    return out;
+  }).join('.');
+}
+
+function unpackStrokes(packed) {
+  if (!packed) return [];
+  return packed.split('.').map((s) => {
+    const pts = [];
+    for (let i = 0; i + 1 < s.length; i += 2) pts.push([PACK_ABC.indexOf(s[i]) / 63, PACK_ABC.indexOf(s[i + 1]) / 63]);
+    return pts;
+  });
+}
+
+function keepWriting(p, word, said, w) {
+  const list = p.writing || (p.writing = []);
+  list.push({ t: Date.now(), w: word, said, hint: w.hinted, boxes: w.boxes.map((b) => packStrokes(b.strokes)) });
+  if (list.length > WRITING_KEEP) list.splice(0, list.length - WRITING_KEEP);
+}
+
+// Marked right, but a letter was left blank or there are extra ones: worth a look.
+function writingFlag(x) {
+  const n = x.w.length;
+  return x.said && (x.boxes.length > n || x.boxes.slice(0, n).some((b) => !b));
+}
 
 function blankOut(sentence, word, filler) {
   const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
@@ -1428,7 +1539,7 @@ function renderProgress() {
     const worst = Object.values(p.words).filter((x) => x.wrong > 0).sort((a, b) => b.wrong - a.wrong).slice(0, 8);
     const bars = h.slice(-15).map((x) => `<div title="${shortDate(x.t)}: ${x.correct}/${x.total}" style="height:${Math.max(5, (x.correct / x.total) * 100)}%"></div>`).join('');
     return `
-      <div class="card">
+      <div class="card" data-player="${p.id}">
         <div class="player-header"><span class="avatar">${p.avatar}</span>
           <div><div class="name">${esc(p.name)}</div><span class="note">${gradeLabel(p.grade)} · last played ${h.length ? shortDate(h[h.length - 1].t) : 'never'}</span></div>
         </div>
@@ -1439,12 +1550,73 @@ function renderProgress() {
           <div class="stat"><b>🔥 ${dayStreak(p)}</b><span>day streak</span></div>
           <div class="stat"><b>⭐ ${p.stars}</b><span>stars</span></div>
           <div class="stat"><b>${masteredLevel(p) < 0 ? '—' : levelName(masteredLevel(p))}</b><span>mastered</span></div>
+          <div class="stat"><b>📚 ${learnedCount(p)}</b><span>words learned</span></div>
         </div>
         ${bars ? `<p class="note">Recent scores</p><div class="bars">${bars}</div>` : ''}
         ${worst.length ? `<p class="note">Most missed</p><div class="chips" style="justify-content:flex-start">${worst.map((x) => `<span class="chip">${esc(x.w)} <small>✗${x.wrong} ✓${x.right}</small></span>`).join('')}</div>` : ''}
+        ${writingReview(p)}
       </div>`;
   }).join('');
+  drawHandwriting();
 }
+
+// Draw the kept handwriting in the open sections (a closed one's boxes have no size yet).
+function drawHandwriting() {
+  document.querySelectorAll('#tab-progress details[open] canvas[data-hw]').forEach((c) => {
+    const p = db.profiles.find((x) => x.id === c.closest('[data-player]').dataset.player);
+    const [t, i] = c.dataset.hw.split(':').map(Number);
+    const x = p?.writing?.find((y) => y.t === t);
+    if (!x) return;
+    sizeCanvas(c);
+    drawStrokes(c, unpackStrokes(x.boxes[i]), '', p.pen);
+  });
+}
+$('#tab-progress').addEventListener('toggle', drawHandwriting, true); // toggle doesn't bubble
+
+// The words a player marked themselves in handwriting mode, newest first, as they wrote them.
+function writingReview(p) {
+  const list = (p.writing || []).slice().reverse();
+  if (!list.length) return '';
+  const flagged = list.filter(writingFlag).length;
+  const items = list.map((x) => `
+    <div class="hw-item${writingFlag(x) ? ' flagged' : ''}">
+      <div class="hw-letters">${x.boxes.map((b, i) => `
+        <span class="hw-box${b ? '' : ' missing'}"><canvas class="ruled" data-hw="${x.t}:${i}"></canvas><small>${esc(x.w[i] || '✕')}</small></span>`).join('')}
+      </div>
+      <div class="hw-meta">
+        <b>${esc(x.w)}</b>
+        <span class="${x.said && !x.fixed ? 'trend-up' : 'trend-down'}">${x.fixed ? '✗ you marked it wrong' : x.said ? '✓ said right' : '✗ said wrong'}</span>
+        <span class="note">${shortDate(x.t)}${x.hint ? ' · used a hint' : ''}${writingFlag(x) ? ' · ⚠ letters missing or extra' : ''}</span>
+        ${x.said && !x.fixed ? `<button class="link-btn" data-hw-wrong="${x.t}">It was wrong</button>` : ''}
+      </div>
+    </div>`).join('');
+  return `<details class="hw-review"${flagged ? ' open' : ''}>
+    <summary>Handwriting check: ${list.length} word${list.length === 1 ? '' : 's'} they marked themselves${flagged ? `, <b class="trend-down">${flagged} to look at</b>` : ''}</summary>
+    <p class="note">What they wrote, with the right letter under each box.</p>
+    ${items}
+  </details>`;
+}
+
+// A parent overrules "I got it": the word goes on the player's practice list. The quiz's score
+// and stars stay (take stars away on the Players tab).
+$('#tab-progress').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-hw-wrong]');
+  if (!b) return;
+  const p = db.profiles.find((x) => x.id === b.closest('[data-player]').dataset.player);
+  const x = p.writing.find((y) => y.t === Number(b.dataset.hwWrong));
+  if (!x || x.fixed) return;
+  x.fixed = true;
+  const st = p.words[x.w.toLowerCase()];
+  if (st) {
+    st.right = Math.max(0, st.right - 1);
+    st.wrong++;
+    st.last = false;
+  }
+  saveDb();
+  const open = [...document.querySelectorAll('#tab-progress details')].map((d) => d.open);
+  renderProgress();
+  document.querySelectorAll('#tab-progress details').forEach((d, i) => { d.open = open[i] ?? d.open; });
+});
 
 // Word lists
 
@@ -1529,12 +1701,30 @@ $('#listsView').addEventListener('click', (e) => {
 
 // Players
 
-function renderPlayers() {
+// Stars a parent gives (or, negative, takes away). Each one is logged in p.bonus, so a sync
+// merge (sync.js) keeps it like it keeps a quiz. Stars never go below 0.
+function giveStars(p, n) {
+  n = Math.max(Math.trunc(n) || 0, -p.stars);
+  if (!n) return 0;
+  p.stars += n;
+  (p.bonus || (p.bonus = [])).push({ t: Date.now(), stars: n });
+  return n;
+}
+
+function renderPlayers(msg = {}) {
   $('#tab-players').innerHTML = (db.profiles.map((p) => `
     <div class="card" data-player="${p.id}">
       <div class="player-header"><span class="avatar">${p.avatar}</span><div class="name">${esc(p.name)}</div></div>
       <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(p.name)}" maxlength="20"></label>
       <label class="field"><span>Grade</span><select data-field="grade">${gradeOptions(p.grade)}</select></label>
+      <div class="field">
+        <span>Stars: ⭐ ${p.stars}</span>
+        <div class="give-row">
+          <input type="number" data-stars inputmode="numeric" value="5" min="-999" max="999" aria-label="How many stars">
+          <button class="btn btn-primary" data-act="stars">Give stars</button>
+        </div>
+        <small class="note">${msg[p.id] ? esc(msg[p.id]) : 'A minus number takes stars away.'}</small>
+      </div>
       <div class="action-row">
         <button class="btn btn-ghost" data-act="reset">Reset progress</button>
         <button class="btn btn-ghost btn-danger" data-act="delete">Delete player</button>
@@ -1556,9 +1746,17 @@ $('#tab-players').addEventListener('change', (e) => {
 $('#tab-players').addEventListener('click', (e) => {
   const act = e.target.dataset.act;
   if (!act) return;
-  const p = db.profiles.find((x) => x.id === e.target.closest('[data-player]').dataset.player);
+  const card = e.target.closest('[data-player]');
+  const p = db.profiles.find((x) => x.id === card.dataset.player);
+  if (act === 'stars') {
+    const n = giveStars(p, Number(card.querySelector('[data-stars]').value));
+    if (n) saveDb();
+    const s = (k) => `${k} star${Math.abs(k) === 1 ? '' : 's'}`;
+    renderPlayers({ [p.id]: n > 0 ? `Gave ${p.name} ${s(n)}.` : n < 0 ? `Took away ${s(-n)}.` : 'Nothing to change.' });
+    return;
+  }
   if (act === 'reset' && confirm(`Reset all progress, stars, and streaks for ${p.name}?`)) {
-    Object.assign(p, { history: [], words: {}, stars: 0, day: { last: '', count: 0 } });
+    Object.assign(p, { history: [], words: {}, stars: 0, day: { last: '', count: 0 }, bonus: [], writing: [] });
   } else if (act === 'delete' && confirm(`Delete ${p.name} and all their progress?`)) {
     db.profiles = db.profiles.filter((x) => x !== p);
   } else {
