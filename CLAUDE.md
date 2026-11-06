@@ -48,5 +48,12 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
   done by changing the player records through sync, not in code. Players can change their own
   voice on their start screen. The overnight fill makes clips only in the voices players use.
 - **Stars** were reset once on 11-04 (`STARS_EPOCH = 1` in `app.js`), after the fair-stars rules.
+  The reset came after Hailee farmed stars on 1st-grade Easy. Mastery (`masteredLevel`,
+  `starCap`) now caps stars on levels well below a player's best, so keep that in mind before
+  adding any new way to earn stars.
+- **Hailee's taste** (she's the one asking for features): emoji-style UI icons bothered her
+  (the sponge, monkey and speaker buttons became line icons, `ICONS` in `app.js`). She wanted
+  more person avatars, a Flower theme and cursive names. Lean toward her taste for kid-facing
+  looks, and keep the letters to spell in plain print.
 - Changing live data: edit it through sync (a device, or a newer record via the Worker) so every
   iPad picks it up. Don't edit D1 rows by hand: devices would push their older copy back.

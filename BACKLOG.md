@@ -25,6 +25,10 @@ Ideas parked for later, roughly in order of how much fun they'd add.
     The grants are already logged in `p.bonus`; it needs a "seen up to" time on the player.
   - Handwriting "It was wrong" only puts the word back on the practice list. It could also
     take back that word's share of the quiz's score and stars (for now: Players tab, minus stars).
+- **The rest of the emojis** (open question from 11-04, never answered). Quiz and tool buttons
+  became line icons after Hailee disliked the emojis. Still emojis: the voice-style buttons
+  (Happy, Squeaky, Deep...), the streak and star badges, and the results screen lines. Ask
+  whether to swap those too.
 - **Treats / reward shop.** Parent sets rewards ("ice cream = 30 stars") and kids spend the stars
   they earn. A parent approves each one. This needs a "spent stars" field next to `stars`.
 - **Most improved.** A weekly badge for the player whose score went up most vs. last week. Parent
