@@ -17,6 +17,8 @@
 // image is a PNG or JPEG data URL (null once deleted). Newest wins (updated), per drawing; a put
 // that loses says so, with the newer time, and the device fetches that one.
 //
+//   GET /health  →  { ok, routes, tables }   (no PIN: for checking a deploy, see tools/deploy_worker.mjs)
+//
 //   POST /speak { text, voice }  →  audio/mpeg
 //
 // A natural voice saying text (Workers AI, Deepgram Aura-2). Each clip is made once and kept in D1,
@@ -62,7 +64,8 @@ export default {
     });
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(req.url);
-    const route = { '/sync': sync, '/speak': speak, '/drawings': drawings }[url.pathname];
+    if (url.pathname === '/health' && req.method === 'GET') return health(env, send);
+    const route = ROUTES[url.pathname];
     if (!route || req.method !== 'POST') return send(404, { error: 'not found' });
 
     // The PIN, behind the wrong-PIN limit.
@@ -92,6 +95,13 @@ export default {
     ctx.waitUntil(fill(env));
   },
 };
+
+// GET /health, no PIN (so checking it never counts as a wrong PIN): the routes this copy has and
+// the database's tables, for tools/deploy_worker.mjs to check a deploy. Nothing about the family.
+async function health(env, send) {
+  const { results } = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all();
+  return send(200, { ok: true, routes: Object.keys(ROUTES), tables: results.map((r) => r.name).filter((n) => !n.startsWith('_') && !n.startsWith('sqlite')) });
+}
 
 async function sync(body, env, send) {
   const since = Number.isSafeInteger(body.since) && body.since >= 0 ? body.since : 0;
@@ -179,6 +189,8 @@ async function speak(body, env, send, cors) {
   await env.DB.batch([keepClip(env, voice, text, bytes), addSpend(env, day, text.length)]);
   return audio(bytes);
 }
+
+const ROUTES = { '/sync': sync, '/speak': speak, '/drawings': drawings }; // all POST, all behind the PIN
 
 const today = () => new Date().toISOString().slice(0, 10);
 const spentOn = async (env, day) => (await env.DB.prepare('SELECT chars FROM spend WHERE day = ?').bind(day).first())?.chars || 0;

@@ -21,6 +21,17 @@ const sync = (body, pin = PIN, ip = '1.1.1.1') => fetch(`${API}/sync`, {
 });
 const rec = (id, name, updated, extra = {}) => ({ kind: 'profile', id, data: JSON.stringify({ id, name }), updated, ...extra });
 
+test('health: no PIN needed, lists routes and tables, never counts as a wrong PIN', async () => {
+  const before = (await (await sync({ since: 0, changes: [] })).json()).cursor;
+  for (let i = 0; i < 12; i++) assert.equal((await fetch(`${API}/health`, { headers: { 'CF-Connecting-IP': '4.4.4.4' } })).status, 200);
+  const h = await (await fetch(`${API}/health`)).json();
+  assert.deepEqual(h.routes, ['/sync', '/speak', '/drawings']);
+  for (const t of ['records', 'fails', 'clips', 'spend', 'drawings']) assert.ok(h.tables.includes(t), t);
+  assert.equal(JSON.stringify(h).includes('Hailee'), false, 'nothing about the family');
+  assert.equal((await sync({ since: before, changes: [] }, PIN, '4.4.4.4')).status, 200, 'that address is not locked out');
+  assert.equal((await fetch(`${API}/health`, { method: 'POST' })).status, 404, 'only GET is the health check');
+});
+
 test('wrong PIN is refused', async () => {
   const r = await sync({ since: 0, changes: [] }, '0000');
   assert.equal(r.status, 401);

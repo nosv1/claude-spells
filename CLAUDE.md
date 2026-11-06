@@ -18,9 +18,15 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
   `defs.js` + `sync.js` + `draw.js`. Keep it that way so Pages serves the repo root as-is.
 - **Family sync** (`sync.js`, API in `worker/`): a Cloudflare Worker + D1 on the same account as
   Ride Finder, at `https://spellit-sync.nosv1.workers.dev`. No accounts: the family PIN is the
-  Worker secret `FAMILY_PIN` (never in the repo). Deploy: `cd worker && npx wrangler@4 deploy`.
-  Test: `node --test test/worker.test.mjs test/fill.test.mjs` against
-  `npx wrangler@4 dev --port 8792 --test-scheduled`.
+  Worker secret `FAMILY_PIN` (never in the repo). Test: `node --test test/worker.test.mjs
+  test/fill.test.mjs` against `npx wrangler@4 dev --port 8792 --test-scheduled`.
+  - **Deploy: `node tools/deploy_worker.mjs`** (Chris's OK for Claude to deploy, 2026-11-05, "put
+    up your own safeguards so you don't break anything"). It refuses uncommitted or unpushed
+    code, and any schema that isn't `CREATE ... IF NOT EXISTS`. It runs the Worker tests locally
+    and does a dry-run build. After deploying it checks `GET /health` and CORS, and rolls back
+    automatically if either fails. `--check` runs only the checks. `.claude/settings.json`
+    allows only this script and denies raw `wrangler deploy`, `rollback`, `secret` and remote
+    `d1 execute`. Never work around that: change data through the app (sync), not D1.
   - **Clean up after `wrangler dev` / `wrangler tail` on Windows.** Stopping the task (or
     `timeout`) only kills the outer `npx` shell; `wrangler` and its `workerd.exe` runtimes keep
     running. When done, check for leftover `workerd.exe` / `wrangler` processes and stop them.

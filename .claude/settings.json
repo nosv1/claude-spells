@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node tools/deploy_worker.mjs)",
+      "PowerShell(node tools/deploy_worker.mjs --check)",
+      "Bash(node tools/deploy_worker.mjs)",
+      "Bash(node tools/deploy_worker.mjs --check)"
+    ],
+    "deny": [
+      "PowerShell(npx wrangler@4 deploy *)",
+      "PowerShell(npx wrangler deploy *)",
+      "PowerShell(npx wrangler@4 rollback *)",
+      "PowerShell(npx wrangler@4 d1 execute spellit --remote *)",
+      "PowerShell(npx wrangler@4 secret *)",
+      "Bash(npx wrangler@4 deploy *)",
+      "Bash(npx wrangler deploy *)",
+      "Bash(npx wrangler@4 rollback *)",
+      "Bash(npx wrangler@4 d1 execute spellit --remote *)",
+      "Bash(npx wrangler@4 secret *)"
+    ]
+  }
+}
