@@ -103,8 +103,8 @@
     check('review round starts with missed word', quiz.reviewing && quiz.word.target === missedWord);
     check('drawing break earned at halfway (4 of 5), still there in practice', quiz.drawBreak === 'earned' && !$('#drawBreakBtn').hidden);
     const fq = (rights, n = 10) => ({ items: Array(n), results: rights.map((c) => ({ correct: !!c })), reviewing: false });
-    check('drawing break rule: 4 of 5, only at halfway, not on tiny lists', drawBreakEarned(fq([1, 1, 0, 1, 1]))
-      && !drawBreakEarned(fq([1, 0, 0, 1, 1])) && !drawBreakEarned(fq([1, 1, 1, 1])) && !drawBreakEarned(fq([1, 1, 1, 1, 1, 1]))
+    check('drawing break rule: 3 of 5, only at halfway, not on tiny lists', drawBreakEarned(fq([1, 1, 0, 1, 1])) && drawBreakEarned(fq([1, 0, 0, 1, 1]))
+      && !drawBreakEarned(fq([1, 0, 0, 1, 0])) && !drawBreakEarned(fq([1, 1, 1, 1])) && !drawBreakEarned(fq([1, 1, 1, 1, 1, 1]))
       && !drawBreakEarned(fq([1, 1], 3)) && drawBreakEarned(fq([1, 1], 4)) && !drawBreakEarned({ ...fq([1, 1, 1, 1, 1]), drawBreak: 'used' }));
     check('history saved', db.profiles[0].history.length === 1 && db.profiles[0].history[0].correct === 9);
     type(missedWord);
@@ -121,7 +121,7 @@
     $('#giveUpBtn').click(); next();
     while (!quiz.reviewing) { type(quiz.word.target); next(); }
     check('practice: both missed words', quiz.missed.length === 2 && currentItem().w === m1);
-    check('3 of the first 5: no drawing break', !quiz.drawBreak && $('#drawBreakBtn').hidden);
+    check('3 of the first 5 earns the drawing break', quiz.drawBreak === 'earned' && !$('#drawBreakBtn').hidden);
     $('#giveUpBtn').click(); next();
     type(quiz.word.target); next();
     check('practice: a word still wrong comes round again', $('#screen-results').hidden && quiz.reviewing
@@ -180,7 +180,8 @@
     check('a grade under pays nothing, just under pays 1', starCap(fp, 'grade', '1', 'easy') === 0
       && starCap(fp, 'grade', '1', 'hard') === 1 && starCap(fp, 'grade', '2', 'easy') === 1 && starCap(fp, 'grade', '2', 'hard') === 3);
     check('word lists always pay', starCap(fp, 'list:x', '1', 'easy') === 3);
-    check('note points to the next level', starCapNote(fp, 0).includes('2nd grade Hard'));
+    Object.assign(fp, { source: 'grade', grade: '1', difficulty: 'easy', schoolGrade: '' });
+    check('note points to the next level', starLimit(fp).cap === 0 && starLimit(fp).note.includes('2nd grade Hard'));
     Object.assign(fp, { source: 'grade', grade: '1', difficulty: 'easy' });
     const quizWas = quiz;
     quiz = { p: fp, mode: 'type', hintsLeft: 1, bestStreak: 10, results: Array.from({ length: 10 }, () => ({ correct: true, perfect: true })) };
@@ -191,6 +192,34 @@
     check('a new level pays 3', quiz.summary.stars === 3 && fp.stars === 3 && !quiz.summary.mastered);
     saveQuizResult();
     check('second win masters it', quiz.summary.mastered === '2nd grade Hard' && masteredLevel(fp) === 5);
+
+    // School grade: grade words under the player's real grade pay less, mastered or not.
+    const sg = newProfile('Sixth', '🧒', '6');
+    check('new players get a school grade', sg.schoolGrade === '6');
+    check('school grade: same or above 3, a grade under 2, two under 1, three or more none',
+      ['6', '7', 'adult', '5', '4', '3', '1'].map((g) => schoolCap(sg, 'grade', g)).join('') === '3332100');
+    check('school grade: lists pay, not set means no limit', schoolCap(sg, 'list:x', '1') === 3
+      && schoolCap({ ...sg, schoolGrade: undefined }, 'grade', '1') === 3);
+    Object.assign(sg, { source: 'grade', grade: '1', difficulty: 'easy' });
+    quiz = { p: sg, mode: 'type', hintsLeft: 1, bestStreak: 10, results: Array.from({ length: 10 }, () => ({ correct: true, perfect: true })) };
+    saveQuizResult();
+    check('a 6th grader acing 1st grade gets no stars, and is told why', quiz.summary.stars === 0
+      && quiz.summary.capNote.includes('5 grades below') && quiz.summary.capNote.includes('6th grade'));
+
+    // The same quiz again today pays a star less each time; another level pays 3 again.
+    Object.assign(sg, { grade: '6', difficulty: 'medium' });
+    const got = [];
+    for (let i = 0; i < 4; i++) { saveQuizResult(); got.push(quiz.summary.stars); }
+    check('same quiz today: 3, 2, 1, then none', got.join('') === '3210' && quiz.summary.capNote.includes('3 times today'));
+    sg.difficulty = 'hard';
+    saveQuizResult();
+    check('different words pay 3 again', quiz.summary.stars === 3);
+    sg.history.push(...Array.from({ length: 3 }, () => ({ t: Date.now() - 864e5 * 2, source: 'grade', grade: '6', difficulty: 'easy', correct: 5, total: 10 })));
+    sg.difficulty = 'easy';
+    check('quizzes on other days do not count', repeatCap(sg) === 3);
+    sg.source = 'missed';
+    sg.history.push(...Array.from({ length: 4 }, () => ({ t: Date.now(), source: 'missed', correct: 5, total: 10 })));
+    check('missed-word practice always pays', repeatCap(sg) === 3 && starLimit(sg).cap === 3);
     quiz = quizWas;
 
     // Custom list.

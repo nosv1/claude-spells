@@ -1,5 +1,5 @@
 // Seeds demo data and opens a screen for screenshots: shot.html#quiz, #write, #home, #setup, #results,
-// #parent, #players, #lists, #break, #draw, #gallery
+// #parent, #players, #lists, #break, #draw, #gallery, #shop, #capped
 (function () {
   localStorage.removeItem(STORE_KEY);
   db = loadDb();
@@ -79,6 +79,9 @@
       });
     }
   }
+  // #shop with "How do I earn stars?" open; #capped: a 6th grader on 1st grade words (the star note).
+  if (screen === 'shop') { show('shop'); $('.star-rules').open = true; }
+  if (screen === 'capped') { currentId = b.id; Object.assign(b, { grade: '1', difficulty: 'easy' }); show('setup'); }
   if (screen === 'parent' || screen === 'players' || screen === 'lists') {
     for (let i = 0; i < 8; i++) a.history.push({ t: Date.now() - i * 864e5, source: 'grade', grade: '2', difficulty: 'easy', correct: 5 + (i % 4), total: 10, stars: 1 });
     a.words = { because: { w: 'because', wrong: 3, right: 1 }, friend: { w: 'friend', wrong: 2, right: 2 } };

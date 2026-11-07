@@ -10,7 +10,7 @@
 const DRAW_SECONDS = 180;
 const DRAW_WARN = 30; // the clock turns red for the last 30 seconds
 const DRAW_MIN_WORDS = 4; // shorter quizzes (a tiny word list) have no break
-const DRAW_EARN = 0.8; // of the first half right, without "Show me" (hints are fine): 4 of 5
+const DRAW_EARN = 0.6; // of the first half right, without "Show me" (hints are fine): 3 of 5
 const DRAW_SIZE = 1024; // the picture's pixels, whatever size it shows at
 const DRAW_MAX_CHARS = 1000000; // the Worker keeps a picture up to this long
 const DRAW_COLORS = [

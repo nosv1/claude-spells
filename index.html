@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Dancing+Script:wght@700&family=Pacifico&family=Bangers&family=Satisfy&family=Orbitron:wght@800&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.11.05.4">
+  <link rel="stylesheet" href="style.css?v=2026.11.06.1">
 </head>
 <body>
 <main id="app">
@@ -76,6 +76,17 @@
       <h1>Shop</h1>
       <p class="shop-stars"><span class="star">★</span> <b id="shopStars"></b> stars</p>
       <p class="note">Every quiz earns stars, and stars unlock new themes and pens. Once one's unlocked it's yours, so switch any time.</p>
+      <details class="star-rules">
+        <summary>How do I earn stars?</summary>
+        <p><b>Your score:</b> 9 or 10 right is 3 stars, 7 or 8 is 2 stars, and 5 or 6 is 1 star. A word you got with a hint still counts. "Show me" doesn't.</p>
+        <p><b>Easy words earn less:</b></p>
+        <ul>
+          <li>Words 1 grade below yours: up to 2 stars. 2 grades below: up to 1. 3 or more below: none.</li>
+          <li>A level you've mastered (90% or more twice): up to 2 stars. Levels a bit easier than it: 1. Much easier: none.</li>
+          <li>The same quiz again today: one star less each time (3, then 2, then 1, then none until tomorrow).</li>
+        </ul>
+        <p>Your missed words always earn full stars. For the most stars, try new, harder words!</p>
+      </details>
     </div>
     <div class="card">
       <h2>Themes</h2>
@@ -309,10 +320,10 @@
 
 <div id="confetti" aria-hidden="true"></div>
 
-<script src="words.js?v=2026.11.05.4"></script>
-<script src="defs.js?v=2026.11.05.4"></script>
-<script src="app.js?v=2026.11.05.4"></script>
-<script src="sync.js?v=2026.11.05.4"></script>
-<script src="draw.js?v=2026.11.05.4"></script>
+<script src="words.js?v=2026.11.06.1"></script>
+<script src="defs.js?v=2026.11.06.1"></script>
+<script src="app.js?v=2026.11.06.1"></script>
+<script src="sync.js?v=2026.11.06.1"></script>
+<script src="draw.js?v=2026.11.06.1"></script>
 </body>
 </html>

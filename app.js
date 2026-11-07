@@ -2,7 +2,7 @@
 
 // The version this copy of the app is; version.json on the site is the latest.
 // Bump both before pushing: node tools/bump_version.mjs
-const APP_VERSION = '2026.11.05.4';
+const APP_VERSION = '2026.11.06.1';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -448,7 +448,7 @@ const current = () => db.profiles.find((p) => p.id === currentId);
 
 function newProfile(name, avatar, grade) {
   return {
-    id: uid(), name, avatar, grade,
+    id: uid(), name, avatar, grade, schoolGrade: grade,
     difficulty: 'easy', source: 'grade', voiceStyle: 'happy', voiceURI: '', theme: 'classic', pen: 'ink', font: 'classic',
     history: [], words: {}, stars: 0,
     day: { last: '', count: 0 },
@@ -542,12 +542,46 @@ function starCap(p, source = p.source, grade = p.grade, difficulty = p.difficult
   return gap < 0 ? 3 : gap === 0 ? 2 : gap < 3 ? 1 : 0;
 }
 
-// What the setup screen and results say about a capped level.
-function starCapNote(p, capStars) {
-  if (capStars >= 3) return '';
-  const next = Math.min(masteredLevel(p) + 1, GRADES.length * 3 - 1);
-  const pays = capStars ? `up to ${capStars} star${capStars === 1 ? '' : 's'}` : 'no stars';
-  return `You've mastered ${capStars ? 'this level' : 'these words'}, so it earns ${pays} now. Try ${levelName(next)} for 3 stars!`;
+// A parent sets each player's real grade (p.schoolGrade, Parent mode › Players): kids can change
+// the grade they quiz on, but not this. Grade words below it pay less: up to 2 stars a grade
+// under, 1 two grades under, none three or more under (a 6th grader on 1st grade words).
+// Not set yet: no limit from it.
+const gradeIndex = (g) => GRADES.findIndex(([k]) => k === g);
+function schoolCap(p, source = p.source, grade = p.grade) {
+  if (source !== 'grade' || gradeIndex(p.schoolGrade || '') < 0) return 3;
+  const gap = gradeIndex(p.schoolGrade) - gradeIndex(grade);
+  return gap <= 0 ? 3 : gap === 1 ? 2 : gap === 2 ? 1 : 0;
+}
+
+// The same quiz again on the same day pays a star less each time: 3, then 2, then 1, then none
+// till tomorrow. The same quiz is the same grade and level, or the same word list.
+// Missed-word practice doesn't count: those words are different each time.
+const sameQuiz = (h, p) => h.source === p.source && (p.source !== 'grade' || (h.grade === p.grade && h.difficulty === p.difficulty));
+const timesToday = (p) => p.history.filter((h) => dateStr(new Date(h.t)) === dateStr() && sameQuiz(h, p)).length;
+const repeatCap = (p) => (p.source === 'missed' ? 3 : Math.max(0, 3 - timesToday(p)));
+
+// The most stars this player's next quiz can earn (the smallest of the three limits), and the
+// note that says why, for the setup screen and the results.
+function starLimit(p) {
+  const s = (n) => (n ? `up to ${n} star${n === 1 ? '' : 's'}` : 'no stars');
+  const limits = [];
+  const school = schoolCap(p);
+  if (school < 3) {
+    const gap = gradeIndex(p.schoolGrade) - gradeIndex(p.grade);
+    limits.push([school, `These words are ${gap} grade${gap === 1 ? '' : 's'} below yours, so they earn ${s(school)}. Try ${gradeLabel(p.schoolGrade)} words for 3 stars!`]);
+  }
+  const mastery = starCap(p);
+  if (mastery < 3) {
+    const next = Math.min(masteredLevel(p) + 1, GRADES.length * 3 - 1);
+    limits.push([mastery, `You've mastered ${mastery ? 'this level' : 'these words'}, so it earns ${s(mastery)} now. Try ${levelName(next)} for 3 stars!`]);
+  }
+  const repeat = repeatCap(p);
+  if (repeat < 3) {
+    const n = timesToday(p);
+    limits.push([repeat, `You've done this quiz ${n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`} today, so it earns ${s(repeat)} now. Try different words for 3 stars${repeat ? '' : ', or come back tomorrow'}!`]);
+  }
+  limits.sort((a, b) => a[0] - b[0]);
+  return limits.length ? { cap: limits[0][0], note: limits[0][1] } : { cap: 3, note: '' };
 }
 
 // Weighted random sample: words missed before come up more, unseen words a bit more.
@@ -670,7 +704,7 @@ function renderSetup() {
     `<option value="${v}"${v === p.source ? ' selected' : ''}>${esc(label)}</option>`).join('');
   $('#gradeSelect').disabled = p.source !== 'grade';
   renderLearned(p);
-  $('#starNote').textContent = starCapNote(p, starCap(p));
+  $('#starNote').textContent = starLimit(p).note;
   $('#starNote').hidden = !$('#starNote').textContent;
 
   const recent = p.history.slice(-5).reverse();
@@ -1383,10 +1417,10 @@ function saveQuizResult() {
   const p = quiz.p;
   const correct = quiz.results.filter((r) => r.correct).length;
   const total = quiz.results.length;
-  const capStars = starCap(p);
+  const limit = starLimit(p); // before this quiz joins the history
   const masteredBefore = masteredLevel(p);
-  const stars = Math.min(starsFor(correct, total), capStars);
-  const same = p.history.filter((h) => h.source === p.source && (p.source !== 'grade' || (h.grade === p.grade && h.difficulty === p.difficulty)));
+  const stars = Math.min(starsFor(correct, total), limit.cap);
+  const same = p.history.filter((h) => sameQuiz(h, p));
   const prevBest = same.length ? Math.max(...same.map((h) => h.correct / h.total)) : null;
 
   bumpDayStreak(p);
@@ -1404,7 +1438,7 @@ function saveQuizResult() {
   const mastered = masteredLevel(p);
   quiz.summary = {
     correct, total, stars, unlocks, newBest: prevBest !== null && correct / total > prevBest,
-    capNote: starsFor(correct, total) > stars ? starCapNote(p, capStars) : '',
+    capNote: starsFor(correct, total) > stars ? limit.note : '',
     mastered: mastered > masteredBefore ? levelName(mastered) : '',
   };
 }
@@ -1769,7 +1803,8 @@ function renderPlayers(msg = {}) {
     <div class="card" data-player="${p.id}">
       <div class="player-header"><span class="avatar">${p.avatar}</span><div class="name">${esc(p.name)}</div></div>
       <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(p.name)}" maxlength="20"></label>
-      <label class="field"><span>Grade</span><select data-field="grade">${gradeOptions(p.grade)}</select></label>
+      <label class="field"><span>School grade</span><select data-field="schoolGrade">${p.schoolGrade ? '' : '<option value="" selected>Not set</option>'}${gradeOptions(p.schoolGrade)}</select>
+        <small class="note">Grade words below this earn fewer stars. ${esc(p.name)} can still pick any grade to practice.</small></label>
       <div class="field">
         <span>Stars: ⭐ ${p.stars}</span>
         <div class="give-row">

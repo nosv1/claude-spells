@@ -610,3 +610,9 @@ dialog::backdrop { background: rgba(35, 32, 74, 0.45); }
   .quiz-card .action-row { gap: 8px; }
   .quiz-card .action-row .btn { padding: 11px 10px; font-size: 0.95rem; }
 }
+
+/* ---------- how stars work (shop) ---------- */
+.star-rules { margin-top: 10px; text-align: left; }
+.star-rules summary { cursor: pointer; font-weight: 800; padding: 6px 0; }
+.star-rules p, .star-rules li { font-size: 0.95rem; line-height: 1.45; }
+.star-rules ul { margin: 4px 0 8px; padding-left: 1.2em; }
