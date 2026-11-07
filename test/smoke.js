@@ -420,9 +420,12 @@
       card().querySelector('[data-stars]').value = '5';
       card().querySelector('[data-act="stars"]').click();
       check('parent gives stars', p.stars === 8 && p.bonus.at(-1).stars === 5 && card().textContent.includes('Gave'));
-      card().querySelector('[data-stars]').value = '-20';
-      card().querySelector('[data-act="stars"]').click();
-      check('taking stars stops at 0', p.stars === 0 && p.bonus.at(-1).stars === -8);
+      card().querySelector('[data-stars]').value = '2';
+      card().querySelector('[data-act="take"]').click();
+      check('Take away takes stars', p.stars === 6 && p.bonus.at(-1).stars === -2 && card().textContent.includes('Took away 2 stars'));
+      card().querySelector('[data-stars]').value = '20';
+      card().querySelector('[data-act="take"]').click();
+      check('taking stars stops at 0', p.stars === 0 && p.bonus.at(-1).stars === -6);
       const m = mergeProfiles({ stars: 2, history: [], bonus: [{ t: 1, stars: 2 }] }, { stars: 7, history: [], bonus: [{ t: 1, stars: 2 }, { t: 2, stars: 5 }] });
       check('sync merge keeps stars given on the other device', m.stars === 7 && m.bonus.length === 2);
 

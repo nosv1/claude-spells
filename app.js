@@ -2,7 +2,7 @@
 
 // The version this copy of the app is; version.json on the site is the latest.
 // Bump both before pushing: node tools/bump_version.mjs
-const APP_VERSION = '2026.11.06.1';
+const APP_VERSION = '2026.11.06.2';
 const STORE_KEY = 'spells.v1';
 const QUIZ_LENGTH = 10;
 const HINTS_PER_QUIZ = 1;
@@ -1808,10 +1808,11 @@ function renderPlayers(msg = {}) {
       <div class="field">
         <span>Stars: ⭐ ${p.stars}</span>
         <div class="give-row">
-          <input type="number" data-stars inputmode="numeric" value="5" min="-999" max="999" aria-label="How many stars">
-          <button class="btn btn-primary" data-act="stars">Give stars</button>
+          <input type="number" data-stars inputmode="numeric" pattern="[0-9]*" value="5" min="1" max="999" aria-label="How many stars">
+          <button class="btn btn-primary" data-act="stars">Give</button>
+          <button class="btn btn-ghost" data-act="take">Take away</button>
         </div>
-        <small class="note">${msg[p.id] ? esc(msg[p.id]) : 'A minus number takes stars away.'}</small>
+        <small class="note">${msg[p.id] ? esc(msg[p.id]) : 'Type how many, then Give or Take away.'}</small>
       </div>
       <div class="action-row">
         <button class="btn btn-ghost" data-act="reset">Reset progress</button>
@@ -1836,8 +1837,10 @@ $('#tab-players').addEventListener('click', (e) => {
   if (!act) return;
   const card = e.target.closest('[data-player]');
   const p = db.profiles.find((x) => x.id === card.dataset.player);
-  if (act === 'stars') {
-    const n = giveStars(p, Number(card.querySelector('[data-stars]').value));
+  if (act === 'stars' || act === 'take') {
+    // Two buttons, not a minus sign: an iPhone's number pad has no minus key.
+    const many = Math.abs(Number(card.querySelector('[data-stars]').value) || 0);
+    const n = giveStars(p, act === 'take' ? -many : many);
     if (n) saveDb();
     const s = (k) => `${k} star${Math.abs(k) === 1 ? '' : 's'}`;
     renderPlayers({ [p.id]: n > 0 ? `Gave ${p.name} ${s(n)}.` : n < 0 ? `Took away ${s(-n)}.` : 'Nothing to change.' });

@@ -23,7 +23,7 @@ Ideas parked for later, roughly in order of how much fun they'd add.
   - Tell the kid when a parent gives stars ("🎁 Dad gave you 5 stars!") on their start screen.
     The grants are already logged in `p.bonus`; it needs a "seen up to" time on the player.
   - Handwriting "It was wrong" only puts the word back on the practice list. It could also
-    take back that word's share of the quiz's score and stars (for now: Players tab, minus stars).
+    take back that word's share of the quiz's score and stars (for now: Players tab, Take away).
 - **The rest of the emojis** (open question from 11-04, never answered). Quiz and tool buttons
   became line icons after Hailee disliked the emojis. Still emojis: the voice-style buttons
   (Happy, Squeaky, Deep...), the streak and star badges, and the results screen lines. Ask
