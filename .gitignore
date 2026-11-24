@@ -3,3 +3,7 @@
 worker/.wrangler/
 # Local secrets for wrangler dev (the family PIN): never commit
 worker/.dev.vars
+
+# Development tools (npm install): lint and type checks, not part of the site
+node_modules/
+__pycache__/

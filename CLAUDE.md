@@ -8,6 +8,12 @@ HTML/CSS/JS on GitHub Pages.
 **Before anything else this session, fetch and read Chris's profile:**
 https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
 
+It says who he is and how to work with him. It applies here except where this file says otherwise (the mode
+below). If the fetch fails, say so; don't proceed as a generic assistant.
+
+**Before writing any code, fetch and read the coding standard:**
+https://raw.githubusercontent.com/nosv1/nosv1/main/CODING.md
+
 ## This project
 
 - **Mode: "just build it"** (his call, 2026-11-02). This is a family tool, not a skill-building
@@ -15,7 +21,20 @@ https://raw.githubusercontent.com/nosv1/nosv1/main/PROFILE.md
   pass and the version is bumped: no branch or PR here (his call, 2026-11-05; this overrides the
   profile's "code goes on a branch").
 - **No build step, no dependencies.** `index.html` + `style.css` + `app.js` + `words.js` +
-  `defs.js` + `sync.js` + `draw.js`. Keep it that way so Pages serves the repo root as-is.
+  `defs.js` + `sync.js` + `draw.js`. Keep it that way so Pages serves the repo root as-is. The one
+  exception is dev-only tooling in `package.json` (lint and type checks; his OK, 2026-11-23): nothing the
+  site loads.
+- **Coding standard:** the hub's [CODING.md](https://github.com/nosv1/nosv1/blob/main/CODING.md) at its
+  strictest settings (his call, 2026-11-23). Every code change, without being reminded: read it first;
+  run **Check** before every push (don't push and let CI find it); in the reply, say which rules the
+  change touched and that Check passed; new and changed code meets every rule in full.
+  - **Check:** `npm run check` (ESLint with zero warnings, strict tsc over the JavaScript, the baselines;
+    one-time `npm install`), then the tests below. CI runs `npm run check` on every push.
+  - **Baselines only shrink:** `eslint-suppressions.json` (95 on 2026-11-23) and `checks-baseline.json`
+    (788 type findings, mostly untyped parameters). Clean a file's entries when you're in it, then
+    `npm run lint:prune` / `npm run types:update`.
+  - The page's scripts share one global scope, so ESLint's `no-undef` is off for them and tsc checks
+    undefined names across all of them (tsconfig.json lists the files).
 - **Family sync** (`sync.js`, API in `worker/`): a Cloudflare Worker + D1 on the same account as
   Ride Finder, at `https://spellit-sync.nosv1.workers.dev`. No accounts: the family PIN is the
   Worker secret `FAMILY_PIN` (never in the repo). Test: `node --test test/worker.test.mjs

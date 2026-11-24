@@ -1,0 +1,142 @@
+{
+  "app.js": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 3
+    },
+    "complexity": {
+      "count": 8
+    },
+    "no-implicit-coercion": {
+      "count": 2
+    },
+    "no-param-reassign": {
+      "count": 2
+    },
+    "no-promise-executor-return": {
+      "count": 2
+    },
+    "no-shadow": {
+      "count": 3
+    },
+    "no-sparse-arrays": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 9
+    }
+  },
+  "defs.js": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "strict": {
+      "count": 1
+    }
+  },
+  "draw.js": {
+    "complexity": {
+      "count": 1
+    },
+    "no-implicit-coercion": {
+      "count": 3
+    },
+    "no-promise-executor-return": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 6
+    }
+  },
+  "sync.js": {
+    "complexity": {
+      "count": 3
+    },
+    "no-implicit-coercion": {
+      "count": 2
+    },
+    "no-unused-expressions": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 2
+    },
+    "preserve-caught-error": {
+      "count": 1
+    }
+  },
+  "test/drawings-idb.mjs": {
+    "no-promise-executor-return": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "test/fill.test.mjs": {
+    "no-new-func": {
+      "count": 2
+    }
+  },
+  "test/smoke.js": {
+    "max-depth": {
+      "count": 3
+    },
+    "no-implicit-coercion": {
+      "count": 3
+    },
+    "no-promise-executor-return": {
+      "count": 2
+    },
+    "no-shadow": {
+      "count": 1
+    }
+  },
+  "test/worker.test.mjs": {
+    "no-promise-executor-return": {
+      "count": 1
+    }
+  },
+  "tools/bump_version.mjs": {
+    "no-implicit-coercion": {
+      "count": 1
+    }
+  },
+  "tools/deploy_worker.mjs": {
+    "no-promise-executor-return": {
+      "count": 1
+    },
+    "no-shadow": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 3
+    }
+  },
+  "words.js": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "strict": {
+      "count": 1
+    }
+  },
+  "worker/src/fill.js": {
+    "no-regex-spaces": {
+      "count": 2
+    }
+  },
+  "worker/src/index.js": {
+    "complexity": {
+      "count": 4
+    },
+    "no-implicit-coercion": {
+      "count": 4
+    },
+    "no-shadow": {
+      "count": 5
+    },
+    "no-unused-vars": {
+      "count": 3
+    }
+  }
+}

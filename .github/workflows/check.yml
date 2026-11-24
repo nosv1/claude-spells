@@ -1,0 +1,21 @@
+# Runs on every push: lint (zero warnings), strict types over the JavaScript, the baselines.
+# The coding standard: nosv1/nosv1 CODING.md. The browser tests run on the PC (test/run.ps1), not here.
+name: check
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: npm run check

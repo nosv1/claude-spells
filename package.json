@@ -1,0 +1,20 @@
+{
+  "name": "claude-spells",
+  "private": true,
+  "description": "Dev tools only (lint, types; his OK 2026-11-23). The site has no build step and no dependencies: Pages serves the repo root as-is.",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint --max-warnings 0 .",
+    "lint:prune": "eslint --prune-suppressions .",
+    "types": "python tools/check_baseline.py tsc -- npx tsc -p tsconfig.json --pretty false",
+    "types:update": "python tools/check_baseline.py tsc --update -- npx tsc -p tsconfig.json --pretty false",
+    "check": "npm run lint && npm run types"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "globals": "17.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}
